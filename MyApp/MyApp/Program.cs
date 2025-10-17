@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Data;
 
@@ -9,7 +10,7 @@ namespace MyApp
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-            string defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            string defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("The connection string 'DefaultConnection' was not found.");
 
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(defaultConnectionString));
