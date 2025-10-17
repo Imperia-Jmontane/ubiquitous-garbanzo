@@ -4,6 +4,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     initializeProfileMenu();
     initializeResizableSidebar();
+    initializeLevelSwitcher();
 });
 
 const initializeProfileMenu = () => {
@@ -408,4 +409,291 @@ const initializeResizableSidebar = () => {
             setCollapsed(false);
         });
     }
+};
+
+const initializeLevelSwitcher = () => {
+    const switchers = Array.from(document.querySelectorAll("[data-level-switcher]"));
+
+    if (switchers.length === 0) {
+        return;
+    }
+
+    switchers.forEach((switcher) => {
+        const pagesContainer = switcher.querySelector("[data-level-pages]");
+        const previousButton = switcher.querySelector("[data-level-previous]");
+        const nextButton = switcher.querySelector("[data-level-next]");
+
+        if (pagesContainer === null || previousButton === null || nextButton === null) {
+            return;
+        }
+
+        const container = switcher.closest("[data-level-switcher-container]");
+        const mobilePrevious = container !== null ? container.querySelector("[data-level-mobile-previous]") : null;
+        const mobileNext = container !== null ? container.querySelector("[data-level-mobile-next]") : null;
+
+        const rawLevels = switcher.getAttribute("data-levels");
+        let levels = [];
+
+        if (typeof rawLevels === "string" && rawLevels.trim().length > 0) {
+            try {
+                const parsedLevels = JSON.parse(rawLevels);
+
+                if (Array.isArray(parsedLevels) === true) {
+                    levels = parsedLevels;
+                }
+            }
+            catch (error) {
+                // Ignored when the level list cannot be parsed.
+            }
+        }
+
+        if (levels.length === 0) {
+            const fallbackButtons = Array.from(switcher.querySelectorAll("[data-level-button]"));
+
+            if (fallbackButtons.length > 0) {
+                levels = fallbackButtons
+                    .map((button) => button.getAttribute("data-level-button"))
+                    .filter((value) => typeof value === "string" && value.length > 0);
+            }
+        }
+
+        levels = Array.from(new Set(levels.filter((value) => typeof value === "string" && value.length > 0)));
+
+        if (levels.length === 0) {
+            return;
+        }
+
+        switcher.setAttribute("data-levels", JSON.stringify(levels));
+
+        let currentLevel = switcher.getAttribute("data-current-level");
+
+        if (typeof currentLevel !== "string" || levels.includes(currentLevel) === false) {
+            currentLevel = levels[0];
+        }
+
+        let currentIndex = levels.indexOf(currentLevel);
+        const maxVisible = 7;
+
+        const applyDisabledState = (button, disabled) => {
+            if (button === null) {
+                return;
+            }
+
+            if (disabled === true) {
+                button.classList.add("cursor-not-allowed", "opacity-40");
+                button.setAttribute("aria-disabled", "true");
+                button.setAttribute("disabled", "");
+            }
+            else {
+                button.classList.remove("cursor-not-allowed", "opacity-40");
+                button.removeAttribute("aria-disabled");
+                button.removeAttribute("disabled");
+            }
+        };
+
+        const setCurrentLevel = (level) => {
+            if (levels.includes(level) === false) {
+                return;
+            }
+
+            currentLevel = level;
+            currentIndex = levels.indexOf(currentLevel);
+            switcher.setAttribute("data-current-level", currentLevel);
+            render();
+        };
+
+        const goToPrevious = () => {
+            if (currentIndex <= 0) {
+                return;
+            }
+
+            setCurrentLevel(levels[currentIndex - 1]);
+        };
+
+        const goToNext = () => {
+            if (currentIndex >= levels.length - 1) {
+                return;
+            }
+
+            setCurrentLevel(levels[currentIndex + 1]);
+        };
+
+        const createLevelButton = (level, isActive) => {
+            const button = document.createElement("button");
+
+            button.type = "button";
+            button.dataset.levelButton = level;
+            button.setAttribute("aria-pressed", isActive === true ? "true" : "false");
+            button.textContent = level;
+
+            const baseButtonClasses = [
+                "relative",
+                "inline-flex",
+                "items-center",
+                "px-4",
+                "py-2",
+                "text-sm",
+                "font-semibold",
+                "focus:z-20"
+            ];
+
+            const activeButtonClasses = [
+                "z-10",
+                "bg-indigo-500",
+                "text-white",
+                "shadow-lg",
+                "shadow-indigo-950/40",
+                "focus-visible:outline-2",
+                "focus-visible:outline-offset-2",
+                "focus-visible:outline-indigo-500"
+            ];
+
+            const inactiveButtonClasses = [
+                "text-gray-200",
+                "inset-ring",
+                "inset-ring-gray-700",
+                "hover:bg-white/5",
+                "focus:outline-offset-0"
+            ];
+
+            baseButtonClasses.forEach((className) => button.classList.add(className));
+
+            if (isActive === true) {
+                activeButtonClasses.forEach((className) => button.classList.add(className));
+            }
+            else {
+                inactiveButtonClasses.forEach((className) => button.classList.add(className));
+            }
+
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                setCurrentLevel(level);
+            });
+
+            return button;
+        };
+
+        const createEllipsis = () => {
+            const ellipsis = document.createElement("span");
+
+            ellipsis.classList.add(
+                "relative",
+                "inline-flex",
+                "items-center",
+                "px-4",
+                "py-2",
+                "text-sm",
+                "font-semibold",
+                "text-gray-400",
+                "inset-ring",
+                "inset-ring-gray-700",
+                "focus:outline-offset-0"
+            );
+
+            ellipsis.setAttribute("aria-hidden", "true");
+            ellipsis.textContent = "...";
+
+            return ellipsis;
+        };
+
+        const render = () => {
+            pagesContainer.innerHTML = "";
+
+            if (levels.includes(currentLevel) === false) {
+                currentLevel = levels[0];
+                currentIndex = 0;
+            }
+
+            const targetSize = Math.min(maxVisible, levels.length);
+            let visibleIndices;
+
+            if (levels.length <= maxVisible) {
+                visibleIndices = levels.map((_, index) => index);
+            }
+            else {
+                const indexSet = new Set();
+
+                indexSet.add(0);
+                indexSet.add(levels.length - 1);
+                indexSet.add(currentIndex);
+
+                let leftIndex = currentIndex - 1;
+                let rightIndex = currentIndex + 1;
+
+                while (indexSet.size < targetSize && (leftIndex > 0 || rightIndex < levels.length - 1)) {
+                    if (leftIndex > 0) {
+                        indexSet.add(leftIndex);
+                        leftIndex -= 1;
+                    }
+
+                    if (indexSet.size >= targetSize) {
+                        break;
+                    }
+
+                    if (rightIndex < levels.length - 1) {
+                        indexSet.add(rightIndex);
+                        rightIndex += 1;
+                    }
+                }
+
+                visibleIndices = Array.from(indexSet).sort((a, b) => a - b);
+
+                if (visibleIndices.length < targetSize) {
+                    for (let index = 1; index < levels.length - 1 && visibleIndices.length < targetSize; index++) {
+                        if (visibleIndices.includes(index) === false) {
+                            visibleIndices.push(index);
+                        }
+                    }
+
+                    visibleIndices.sort((a, b) => a - b);
+                }
+            }
+
+            let lastIndex = null;
+
+            visibleIndices.forEach((index) => {
+                if (lastIndex !== null && index - lastIndex > 1) {
+                    pagesContainer.appendChild(createEllipsis());
+                }
+
+                const level = levels[index];
+                const isActive = level === currentLevel;
+
+                pagesContainer.appendChild(createLevelButton(level, isActive));
+
+                lastIndex = index;
+            });
+
+            applyDisabledState(previousButton, currentIndex === 0);
+            applyDisabledState(nextButton, currentIndex === levels.length - 1);
+            applyDisabledState(mobilePrevious, currentIndex === 0);
+            applyDisabledState(mobileNext, currentIndex === levels.length - 1);
+        };
+
+        previousButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            goToPrevious();
+        });
+
+        nextButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            goToNext();
+        });
+
+        if (mobilePrevious !== null) {
+            mobilePrevious.addEventListener("click", (event) => {
+                event.preventDefault();
+                goToPrevious();
+            });
+        }
+
+        if (mobileNext !== null) {
+            mobileNext.addEventListener("click", (event) => {
+                event.preventDefault();
+                goToNext();
+            });
+        }
+
+        render();
+    });
 };

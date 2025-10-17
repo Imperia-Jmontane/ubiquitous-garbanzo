@@ -75,7 +75,7 @@
                 <div class="h-24 w-0.5 rounded-full bg-white/30"></div>
             </div>
         </div>
-        <div class="flex min-h-screen flex-1 flex-col overflow-hidden">
+        <div class="relative flex min-h-screen flex-1 flex-col overflow-hidden">
             <header class="border-b border-white/10 bg-gray-900/70 px-4 py-2 backdrop-blur lg:px-8">
                 <div class="flex h-12 items-center gap-3 lg:gap-6">
                     <button type="button" data-open-sidebar class="inline-flex size-10 items-center justify-center rounded-md border border-white/10 bg-gray-900/60 text-gray-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 lg:hidden">
@@ -146,11 +146,61 @@
                 </div>
             </el-disclosure>
             <div class="flex flex-1 flex-col overflow-hidden">
-                <main class="flex-1 overflow-auto bg-gradient-to-br from-slate-950 via-slate-950 to-indigo-950 px-4 py-6 lg:px-10 lg:py-8">
+                <main class="flex-1 overflow-auto bg-gradient-to-br from-slate-950 via-slate-950 to-indigo-950 px-4 pb-28 pt-6 lg:px-10 lg:pb-36 lg:pt-8">
                     <div class="min-h-full rounded-3xl border border-dashed border-white/10 bg-gray-900/70 p-6 shadow-inner shadow-black/30">
                         @RenderBody()
                     </div>
                 </main>
+            </div>
+            <div class="sticky bottom-0 z-50 bg-gray-900/90 backdrop-blur lg:fixed lg:inset-x-0 lg:bottom-0">
+                <div class="border-t border-white/10">
+                    <div class="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <nav aria-label="Breadcrumb" class="flex items-center gap-3 text-sm font-medium text-gray-300">
+                                <ol class="flex items-center gap-3">
+                                    <li>
+                                        <div class="flex items-center gap-3">
+                                            <a href="#" class="inline-flex items-center gap-2 text-gray-200 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                                                Repositorio
+                                            </a>
+                                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-4 text-gray-500">
+                                                <path fill-rule="evenodd" d="m12.22 5.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L14.44 10 11.16 6.28a.75.75 0 1 1 1.06-1.06Z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </div>
+                                    </li>
+                                    <li class="text-gray-100">Call_Stack</li>
+                                </ol>
+                            </nav>
+                            <div data-level-switcher-container class="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                                <div class="flex flex-1 justify-between gap-3 sm:hidden">
+                                    <button type="button" data-level-mobile-previous class="relative inline-flex flex-1 items-center justify-center rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-white/10 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                                        Anterior
+                                    </button>
+                                    <button type="button" data-level-mobile-next class="relative inline-flex flex-1 items-center justify-center rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-200 hover:bg-white/10 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                                        Siguiente
+                                    </button>
+                                </div>
+                                <nav aria-label="Seleccionar nivel" data-level-switcher data-levels='["L1","L2","L3"]' data-current-level="L1" class="hidden sm:flex sm:items-center">
+                                    <div class="isolate inline-flex -space-x-px rounded-md border border-white/10 bg-white/5 shadow-inner shadow-indigo-950/30">
+                                        <button type="button" data-level-previous class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 inset-ring inset-ring-gray-700 hover:bg-white/5 focus:z-20 focus:outline-offset-0">
+                                            <span class="sr-only">Nivel anterior</span>
+                                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5">
+                                                <path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </button>
+                                        <div data-level-pages class="flex"></div>
+                                        <button type="button" data-level-next class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 inset-ring inset-ring-gray-700 hover:bg-white/5 focus:z-20 focus:outline-offset-0">
+                                            <span class="sr-only">Nivel siguiente</span>
+                                            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5">
+                                                <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
