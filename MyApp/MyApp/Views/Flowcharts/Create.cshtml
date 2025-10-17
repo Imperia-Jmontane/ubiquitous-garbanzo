@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "Crear flowchart";
+}
+<section class="mx-auto flex max-w-3xl flex-col gap-6 rounded-2xl border border-dashed border-white/15 bg-gray-900/50 p-8 text-center text-gray-100 shadow-inner shadow-black/30">
+    <h1 class="text-2xl font-semibold text-white">Nuevo flowchart</h1>
+    <p class="text-sm text-gray-400">
+        Esta pantalla servirá para configurar las propiedades básicas de tu flowchart antes de abrir el editor visual.
+        Añade un título, asigna un equipo responsable y elige una plantilla para empezar más rápido.
+    </p>
+    <div class="rounded-lg border border-white/10 bg-gray-900/60 p-6 text-left">
+        <p class="text-sm text-gray-300">Próximamente podrás definir:</p>
+        <ul class="mt-3 space-y-2 text-sm text-gray-400">
+            <li class="flex items-center gap-2">
+                <span class="size-2 rounded-full bg-indigo-400"></span>
+                Nombre y descripción del flujo.
+            </li>
+            <li class="flex items-center gap-2">
+                <span class="size-2 rounded-full bg-indigo-400"></span>
+                Equipo y etiquetas para organizarlo.
+            </li>
+            <li class="flex items-center gap-2">
+                <span class="size-2 rounded-full bg-indigo-400"></span>
+                Plantilla de partida o flujo en blanco.
+            </li>
+        </ul>
+    </div>
+    <a asp-area="" asp-controller="Flowcharts" asp-action="Index" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
+        Volver al listado
+    </a>
+</section>

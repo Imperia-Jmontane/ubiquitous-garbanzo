@@ -1,0 +1,52 @@
+@using System.Collections.Generic
+@{
+    ViewData["Title"] = "Flowcharts";
+    List<(string Title, string Description, string Updated)> recentFlowcharts = new List<(string Title, string Description, string Updated)>
+    {
+        ("Onboarding de clientes", "Define la serie de pasos automatizados para dar la bienvenida a los nuevos clientes.", "Actualizado hace 2 horas"),
+        ("Embudo de ventas B2B", "Sincroniza reuniones, recordatorios y tareas de seguimiento para tu equipo comercial.", "Actualizado ayer"),
+        ("Experiencia post-compra", "Coordina mensajes y encuestas de satisfacción después de cada entrega.", "Actualizado hace 3 días")
+    };
+}
+<section class="space-y-8 text-gray-100">
+    <header class="flex flex-col gap-4 rounded-2xl border border-white/10 bg-gray-900/70 p-6 shadow-inner shadow-black/20 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-white">Flowcharts</h1>
+            <p class="mt-1 text-sm text-gray-400">Organiza tus automatizaciones visuales, colabora con tu equipo y publica nuevos flujos en minutos.</p>
+        </div>
+        <a asp-area="" asp-controller="Flowcharts" asp-action="Create" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
+                <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Crear flowchart
+        </a>
+    </header>
+    <div class="rounded-2xl border border-white/10 bg-gray-900/60">
+        <nav class="flex gap-2 border-b border-white/10 px-4 py-3" aria-label="Categorías de flowcharts">
+            <button type="button" class="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40 shadow-inner shadow-indigo-950/40">Recientes</button>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-white/5">Favoritos</button>
+            <button type="button" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-white/5">Plantillas</button>
+        </nav>
+        <div class="grid gap-4 px-4 py-5 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach ((string Title, string Description, string Updated) flowchart in recentFlowcharts)
+            {
+                <article class="flex h-full flex-col justify-between rounded-xl border border-white/10 bg-gray-900/80 p-5 shadow-inner shadow-black/20 transition hover:border-indigo-400/60 hover:shadow-xl hover:shadow-indigo-950/40 focus-within:border-indigo-400/60">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white">@flowchart.Title</h2>
+                        <p class="mt-2 text-sm text-gray-400">@flowchart.Description</p>
+                    </div>
+                    <div class="mt-6 flex items-center justify-between text-xs text-gray-400">
+                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 font-medium text-emerald-300">
+                            <span class="size-2 rounded-full bg-emerald-400"></span>
+                            Activo
+                        </span>
+                        <span>@flowchart.Updated</span>
+                    </div>
+                </article>
+            }
+        </div>
+    </div>
+    <div class="rounded-2xl border border-dashed border-white/15 bg-gray-900/40 p-6 text-center text-sm text-gray-400">
+        ¿Buscas algo específico? Usa la barra de búsqueda para filtrar tus flowcharts por nombre, etiquetas o equipo.
+    </div>
+</section>

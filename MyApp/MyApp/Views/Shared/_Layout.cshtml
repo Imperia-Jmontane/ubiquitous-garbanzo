@@ -10,22 +10,43 @@
     <link rel="stylesheet" href="~/MyApp.styles.css" asp-append-version="true" />
 </head>
 <body class="h-full">
+    @{
+        string currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+        string currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+        string desktopNavBaseClass = "inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-300 transition hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500";
+        string desktopNavActiveClass = "inline-flex items-center gap-2 rounded-md bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 shadow-inner shadow-indigo-950/50 ring-1 ring-inset ring-indigo-500/40";
+        string mobileNavBaseClass = "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-200 transition hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500";
+        string mobileNavActiveClass = "flex items-center gap-2 rounded-md bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40";
+        bool isHomeActive = string.Equals(currentController, "Home", System.StringComparison.OrdinalIgnoreCase) && string.Equals(currentAction, "Index", System.StringComparison.OrdinalIgnoreCase);
+        bool isFlowchartsActive = string.Equals(currentController, "Flowcharts", System.StringComparison.OrdinalIgnoreCase);
+        bool isAboutActive = string.Equals(currentController, "About", System.StringComparison.OrdinalIgnoreCase);
+        string homeDesktopClass = isHomeActive ? desktopNavActiveClass : desktopNavBaseClass;
+        string flowchartsDesktopClass = isFlowchartsActive ? desktopNavActiveClass : desktopNavBaseClass;
+        string aboutDesktopClass = isAboutActive ? desktopNavActiveClass : desktopNavBaseClass;
+        string homeMobileClass = isHomeActive ? mobileNavActiveClass : mobileNavBaseClass;
+        string flowchartsMobileClass = isFlowchartsActive ? mobileNavActiveClass : mobileNavBaseClass;
+        string aboutMobileClass = isAboutActive ? mobileNavActiveClass : mobileNavBaseClass;
+    }
     <div class="flex min-h-screen w-full bg-gray-950 text-gray-100" data-layout-root>
+        <button type="button" data-sidebar-floating-trigger class="fixed left-4 top-1/2 z-40 hidden -translate-y-1/2 flex items-center justify-center rounded-full border border-white/10 bg-gray-900/80 p-3 text-gray-200 shadow-lg shadow-indigo-950/50 backdrop-blur transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+            <span class="sr-only">Mostrar panel de código</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
+                <path d="M3.75 6A2.25 2.25 0 0 1 6 3.75h12A2.25 2.25 0 0 1 20.25 6v12A2.25 2.25 0 0 1 18 20.25H6A2.25 2.25 0 0 1 3.75 18V6Z" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M8.25 9.75h7.5m-7.5 4.5h4.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
         <div class="flex">
             <div data-sidebar-backdrop class="fixed inset-0 z-30 bg-gray-950/80 opacity-0 transition-opacity duration-300 pointer-events-none lg:hidden"></div>
             <aside data-resizable-sidebar class="fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-md -translate-x-full flex-col gap-y-6 border-r border-white/10 bg-gray-900/95 px-6 pb-8 pt-6 shadow-2xl ring-1 ring-white/10 transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:h-auto lg:w-[320px] lg:translate-x-0 lg:bg-gray-900/80" style="width: 320px;">
                 <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="flex size-10 items-center justify-center rounded-lg bg-indigo-500/10 text-lg font-semibold text-indigo-300 ring-1 ring-inset ring-indigo-500/40">My</span>
-                        <div>
-                            <p class="text-sm font-semibold text-white">Code Viewer</p>
-                            <p class="text-xs text-gray-400">Arrastra para ajustar</p>
-                        </div>
+                    <div>
+                        <p class="text-sm font-semibold text-white">Code Viewer</p>
+                        <p class="text-xs text-gray-400">Arrastra para ajustar</p>
                     </div>
-                    <button type="button" data-close-sidebar class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-gray-900/40 text-gray-400 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 lg:hidden">
-                        <span class="sr-only">Cerrar panel</span>
+                    <button type="button" data-close-sidebar class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-gray-900/40 text-gray-400 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                        <span class="sr-only">Colapsar panel</span>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
-                            <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="m15.75 4.5-7.5 7.5 7.5 7.5" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                     </button>
                 </div>
@@ -55,41 +76,76 @@
             </div>
         </div>
         <div class="flex min-h-screen flex-1 flex-col overflow-hidden">
-            <header class="flex h-16 items-center justify-between border-b border-white/10 bg-gray-900/70 px-4 backdrop-blur lg:px-8">
-                <div class="flex items-center gap-4">
+            <header class="border-b border-white/10 bg-gray-900/70 px-4 py-2 backdrop-blur lg:px-8">
+                <div class="flex h-12 items-center gap-3 lg:gap-6">
                     <button type="button" data-open-sidebar class="inline-flex size-10 items-center justify-center rounded-md border border-white/10 bg-gray-900/60 text-gray-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 lg:hidden">
                         <span class="sr-only">Abrir panel</span>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-6">
                             <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                     </button>
-                    <div>
-                        <p class="text-sm font-semibold text-white">Flow Builder Workspace</p>
-                        <p class="text-xs text-gray-400">Usa Alt + B para mostrar u ocultar el visor</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-4">
-                    <span class="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 sm:inline-flex">Cambios guardados</span>
-                    <div class="relative" data-profile-menu-container>
-                        <button type="button" class="relative flex items-center focus-visible:outline-none" aria-haspopup="true" aria-expanded="false" data-profile-menu-trigger>
-                            <span class="absolute -inset-1.5"></span>
-                            <span class="sr-only">Abrir menú de usuario</span>
-                            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&amp;fit=facearea&amp;facepad=2&amp;w=80&amp;h=80&amp;q=80" alt="" class="size-9 rounded-full bg-gray-800 outline -outline-offset-1 outline-white/10" />
-                            <span class="ml-3 hidden text-sm font-medium text-white sm:block">Sofía Rivera</span>
+                    <a asp-area="" asp-controller="Home" asp-action="Index" class="text-sm font-semibold text-white">
+                        Flow Builder Workspace
+                    </a>
+                    <nav class="hidden md:flex items-center gap-1 lg:gap-2" aria-label="Navegación principal">
+                        <a asp-area="" asp-controller="Home" asp-action="Index" class="@homeDesktopClass">Home</a>
+                        <a asp-area="" asp-controller="Flowcharts" asp-action="Index" class="@flowchartsDesktopClass">Flowcharts</a>
+                        <a asp-area="" asp-controller="About" asp-action="Index" class="@aboutDesktopClass">About</a>
+                    </nav>
+                    <div class="flex flex-1 items-center justify-end gap-3 sm:gap-4">
+                        <form method="get" action="#" class="relative hidden w-full max-w-xs items-center md:flex" role="search">
+                            <label for="layout-search" class="sr-only">Buscar</label>
+                            <span class="pointer-events-none absolute left-3 text-gray-400">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-4">
+                                    <path d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </span>
+                            <input id="layout-search" name="q" type="search" placeholder="Buscar en flowchart" class="w-full rounded-lg border border-white/10 bg-gray-900/60 py-2 pl-10 pr-3 text-sm text-gray-200 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" />
+                        </form>
+                        <span class="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 sm:inline-flex">Cambios guardados</span>
+                        <button type="button" command="--toggle" commandfor="mobile-primary-nav" class="inline-flex size-10 items-center justify-center rounded-md border border-white/10 bg-gray-900/60 text-gray-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 md:hidden" aria-controls="mobile-primary-nav">
+                            <span class="sr-only">Abrir menú principal</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-6 in-aria-expanded:hidden">
+                                <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-6 not-in-aria-expanded:hidden">
+                                <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
                         </button>
-                        <div class="absolute right-0 top-full z-50 mt-2 hidden w-40 rounded-md bg-gray-900 py-2 shadow-lg outline outline-1 -outline-offset-1 outline-white/10" role="menu" aria-label="Menú de usuario" data-profile-menu>
-                            <a href="#" class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden" role="menuitem">Perfil</a>
-                            <a href="#" class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden" role="menuitem">Salir</a>
+                        <div class="relative" data-profile-menu-container>
+                            <button type="button" class="relative flex items-center focus-visible:outline-none" aria-haspopup="true" aria-expanded="false" data-profile-menu-trigger>
+                                <span class="absolute -inset-1.5"></span>
+                                <span class="sr-only">Abrir menú de usuario</span>
+                                <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&amp;fit=facearea&amp;facepad=2&amp;w=80&amp;h=80&amp;q=80" alt="" class="size-9 rounded-full bg-gray-800 outline -outline-offset-1 outline-white/10" />
+                                <span class="ml-3 hidden text-sm font-medium text-white sm:block">Sofía Rivera</span>
+                            </button>
+                            <div class="absolute right-0 top-full z-50 mt-2 hidden w-40 rounded-md bg-gray-900 py-2 shadow-lg outline outline-1 -outline-offset-1 outline-white/10" role="menu" aria-label="Menú de usuario" data-profile-menu>
+                                <a href="#" class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden" role="menuitem">Perfil</a>
+                                <a href="#" class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden" role="menuitem">Salir</a>
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
-            <div class="flex flex-1 flex-col overflow-hidden">
-                <div class="flex items-center gap-2 border-b border-white/10 bg-gray-900/50 px-4 py-3 lg:px-8">
-                    <button type="button" class="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40">Canvas principal</button>
-                    <button type="button" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-white/5">Preview</button>
-                    <button type="button" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-white/5">Historial</button>
+            <el-disclosure id="mobile-primary-nav" hidden class="border-b border-white/10 bg-gray-900/90 px-4 pb-4 md:hidden">
+                <nav aria-label="Navegación principal móvil" class="space-y-1 py-3">
+                    <a asp-area="" asp-controller="Home" asp-action="Index" class="@homeMobileClass">Home</a>
+                    <a asp-area="" asp-controller="Flowcharts" asp-action="Index" class="@flowchartsMobileClass">Flowcharts</a>
+                    <a asp-area="" asp-controller="About" asp-action="Index" class="@aboutMobileClass">About</a>
+                </nav>
+                <div class="border-t border-white/10 pt-4">
+                    <form method="get" action="#" class="relative flex items-center" role="search">
+                        <label for="layout-search-mobile" class="sr-only">Buscar</label>
+                        <span class="pointer-events-none absolute left-3 text-gray-400">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
+                                <path d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                        <input id="layout-search-mobile" name="q" type="search" placeholder="Buscar en flowchart" class="w-full rounded-lg border border-white/10 bg-gray-900/60 py-2 pl-10 pr-3 text-sm text-gray-200 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" />
+                    </form>
                 </div>
+            </el-disclosure>
+            <div class="flex flex-1 flex-col overflow-hidden">
                 <main class="flex-1 overflow-auto bg-gradient-to-br from-slate-950 via-slate-950 to-indigo-950 px-4 py-6 lg:px-10 lg:py-8">
                     <div class="min-h-full rounded-3xl border border-dashed border-white/10 bg-gray-900/70 p-6 shadow-inner shadow-black/30">
                         @RenderBody()

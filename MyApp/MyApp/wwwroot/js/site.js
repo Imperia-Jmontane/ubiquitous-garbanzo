@@ -86,6 +86,7 @@ const initializeResizableSidebar = () => {
     const openButton = document.querySelector("[data-open-sidebar]");
     const closeButtons = document.querySelectorAll("[data-close-sidebar]");
     const body = document.body;
+    const floatingTrigger = document.querySelector("[data-sidebar-floating-trigger]");
 
     const clampWidth = (width) => {
         const viewportWidth = window.innerWidth;
@@ -145,6 +146,24 @@ const initializeResizableSidebar = () => {
         backdrop.classList.add("opacity-0");
     };
 
+    const updateFloatingTrigger = () => {
+        if (floatingTrigger === null) {
+            return;
+        }
+
+        if (mediaQuery.matches === false) {
+            floatingTrigger.classList.add("hidden");
+            return;
+        }
+
+        if (isCollapsed === true) {
+            floatingTrigger.classList.remove("hidden");
+        }
+        else {
+            floatingTrigger.classList.add("hidden");
+        }
+    };
+
     const setCollapsed = (collapsed) => {
         isCollapsed = collapsed;
 
@@ -157,6 +176,8 @@ const initializeResizableSidebar = () => {
             handle.classList.remove("is-collapsed");
             applyWidth();
         }
+
+        updateFloatingTrigger();
     };
 
     const isMobileOpen = () => mediaQuery.matches === false && sidebar.classList.contains("translate-x-0");
@@ -303,6 +324,8 @@ const initializeResizableSidebar = () => {
             hideBackdrop();
             sidebar.classList.remove("translate-x-0");
         }
+
+        updateFloatingTrigger();
     };
 
     handle.addEventListener("pointerdown", startDragging);
@@ -379,4 +402,10 @@ const initializeResizableSidebar = () => {
 
     handleBreakpointChange(mediaQuery);
     applyWidth();
+
+    if (floatingTrigger !== null) {
+        floatingTrigger.addEventListener("click", () => {
+            setCollapsed(false);
+        });
+    }
 };
