@@ -1,13 +1,13 @@
 # MVP Checklist — Visualizador de repos GitHub con flowcharts (Codex CLI con login ChatGPT)
 
-> Objetivo: Ingerir un repo de GitHub, generar un flowchart multinivel (L1/L2/L3/L4/.../Ln) con trazabilidad a líneas de código, y visualizarlo en web (ASP.NET MVC + EF backend, Tailwind frontend). El flowchart lo genera una instancia **Codex CLI** autenticada con **cuenta de ChatGPT** y se guarda como comentarios en el código. El repostiorio de Github se clona iniciando sesión con la cuenta del usuario.
+> Objetivo: Ingerir un repo de GitHub con autenticación mediante login con cuenta de GitHub para poder hacer git clone, generar un flowchart multinivel (L1/L2/L3/L4/.../Ln) con trazabilidad a líneas de código ya que los bloques del flowchart se marcan con comentarios en el código, y visualizarlo en web (ASP.NET MVC + EF backend, Tailwind frontend). El flowchart lo genera una instancia **Codex CLI** autenticada con **cuenta de ChatGPT** y se guarda como comentarios en el código. El repostiorio de Github se clona iniciando sesión con la cuenta del usuario.
 
 ---
 
 ## 0) Prerrequisitos
 
 - **Cuenta de ChatGPT compatible con Codex** (Plus, Pro, Team/Business, Edu o Enterprise).  
-- **Codex CLI** instalado localmente en la máquina de orquestación.
+- **Codex CLI** instalado localmente en la máquina de orquestación. Ha sido instalado mediante brew install codex.
 - **Acceso a GitHub** para el/los repos a ingerir (elige 1 de 3 para clonado/lectura):  
   - **GitHub CLI (gh) + login** (flow web) para actuar “como tú” al clonar.  
   - **SSH keys** cargadas en GitHub si prefieres `git@...`.  
