@@ -39,11 +39,13 @@
   - [ ] Autenticación vía **ChatGPT login** (no API key en esta iteración).
   - [ ] Verificar política de datos y uso en tu plan.
 - **GitHub**:
-  - [ ] Elegir mecanismo de identidad para clonado/acceso (gh login, SSH o PAT).  
-  - [ ] Si PAT, definir caducidad, permisos mínimos, y almacenamiento seguro de secretos.
-  - [ ] Revisar política de la organización (SSO, tokens, expiración).
+  - [x] Elegir mecanismo de identidad para clonado/acceso (gh login, SSH o PAT). → Se usará `gh auth login` con fallback a PAT fino.
+  - [x] Si PAT, definir caducidad, permisos mínimos, y almacenamiento seguro de secretos. → PAT fino solo lectura/repos/workflow, rotación cada 90 días en secret manager.
+  - [x] Revisar política de la organización (SSO, tokens, expiración).
+  - [x] Scopes obligatorios para OAuth/PAT: `repo`, `workflow`, `read:user`.
+  - [x] Variables gestionadas en secret manager: `GITHUB__CLIENT_ID`, `GITHUB__CLIENT_SECRET`, `GITHUB__WEBHOOK_SECRET`, `CODEX__CHATGPT_SESSION_TOKEN`, `GITHUB__PERSONAL_ACCESS_TOKEN`.
 - **App web**:
-  - [ ] Variables de entorno para secretos (no en código).
+  - [x] Variables de entorno para secretos (no en código). → Configurado via placeholders `${ENV}` y secret manager.
   - [ ] Lista blanca de repos que se pueden ingerir.
   - [ ] Registro de auditoría de acciones (quién ingiere/genera).
 
@@ -90,6 +92,7 @@
   - [ ] ParseService (Roslyn).
   - [ ] CodexJobService (orquestación CLI).
   - [ ] GraphService (normalización, niveles, ciclos).
+  - [x] Contratos de dominio para almacenamiento seguro de tokens y validación de scopes (`IGitHubSecretStore`, `IGitHubScopeValidator`, política de secretos de repositorio).
 - **API**:
   - [ ] `POST /repos/{slug}/ingest` – iniciar ingesta + job Codex.
   - [ ] `GET /repos/{slug}/graphs/{commit}?level=L1|L2|L3` – obtener flowchart JSON.
@@ -140,7 +143,8 @@
 
 ## 10) Despliegue
 
-- [ ] Variables de entorno (secrets) para GitHub y Codex.
+- [x] Variables de entorno (secrets) para GitHub y Codex.
+  - Documentadas: `GITHUB__CLIENT_ID`, `GITHUB__CLIENT_SECRET`, `GITHUB__WEBHOOK_SECRET`, `CODEX__CHATGPT_SESSION_TOKEN`, `GITHUB__PERSONAL_ACCESS_TOKEN`.
 - [ ] Servicio de **worker** para jobs (separado del servidor web).
 - [ ] Política de retención de artefactos/clones.
 - [ ] Documentación “Cómo usar” y “Troubleshooting”.
