@@ -2,7 +2,63 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
+# IDE configuration
 /.vs
-/MyApp/.vs/MyApp
-/MyApp/MyApp/obj
-/MyApp/MyApp/bin
+MyApp/.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build output
+MyApp/**/bin/
+MyApp/**/obj/
+MyApp/**/Debug/
+MyApp/**/Release/
+MyApp/**/x64/
+MyApp/**/x86/
+MyApp/**/TestResults/
+MyApp/**/BenchmarkDotNet.Artifacts/
+MyApp/**/artifacts/
+MyApp/**/AppPackages/
+MyApp/**/BundleArtifacts/
+MyApp/**/GeneratedFiles/
+
+# Logs and diagnostics
+*.log
+logs/
+MyApp/**/Logs/
+MyApp/**/logs/
+MyApp/**/log/
+
+# Databases and local data
+*.mdf
+*.ldf
+*.ndf
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+
+# Publish and deployment artifacts
+MyApp/**/publish/
+MyApp/**/PublishProfiles/
+MyApp/**/bin/Release/**
+MyApp/**/bin/Debug/**
+MyApp/**/out/
+MyApp/**/publish-output/
+
+# Frontend tooling artifacts
+MyApp/**/node_modules/
+MyApp/**/dist/
+MyApp/**/coverage/
+
+# Misc caches
+MyApp/**/App_Data/
+MyApp/**/GeneratedArtifacts/
+MyApp/**/obj/**/RefAssemblyCache/

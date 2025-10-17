@@ -35,6 +35,12 @@
                 <path d="M8.25 9.75h7.5m-7.5 4.5h4.5" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
         </button>
+        <button type="button" data-codex-toggle data-codex-floating-trigger class="fixed right-4 top-1/2 z-40 hidden -translate-y-1/2 flex items-center justify-center rounded-full border border-white/10 bg-gray-900/80 p-3 text-gray-200 shadow-lg shadow-indigo-950/50 backdrop-blur transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+            <span class="sr-only">Abrir chat</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
+                <path d="M7.5 8.25h9M7.5 12h5.25M18.75 12a6.75 6.75 0 1 0-13.5 0 6.75 6.75 0 0 0 6.75 6.75h.75l3.75 3v-3a6.75 6.75 0 0 0 2.25-6.75Z" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+        </button>
         <div class="flex">
             <div data-sidebar-backdrop class="fixed inset-0 z-30 bg-gray-950/80 opacity-0 transition-opacity duration-300 pointer-events-none lg:hidden"></div>
             <aside data-resizable-sidebar class="fixed inset-y-0 left-0 z-40 flex h-full w-full max-w-md -translate-x-full flex-col gap-y-6 border-r border-white/10 bg-gray-900/95 px-6 pb-8 pt-6 shadow-2xl ring-1 ring-white/10 transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:h-auto lg:w-[320px] lg:translate-x-0 lg:bg-gray-900/80" style="width: 320px;">
@@ -102,13 +108,6 @@
                             </span>
                             <input id="layout-search" name="q" type="search" placeholder="Buscar en flowchart" class="w-full rounded-lg border border-white/10 bg-gray-900/60 py-2 pl-10 pr-3 text-sm text-gray-200 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" />
                         </form>
-                        <button type="button" data-codex-toggle class="inline-flex items-center gap-2 rounded-md border border-white/10 bg-gray-900/60 px-3 py-2 text-sm font-medium text-gray-200 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
-                            <span class="sr-only">Abrir conversación con Codex</span>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
-                                <path d="M7.5 8.25h9M7.5 12h5.25M18.75 12a6.75 6.75 0 1 0-13.5 0 6.75 6.75 0 0 0 6.75 6.75h.75l3.75 3v-3a6.75 6.75 0 0 0 2.25-6.75Z" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                            <span class="hidden text-sm font-semibold text-white sm:inline">Codex</span>
-                        </button>
                         <span class="hidden rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 sm:inline-flex">Cambios guardados</span>
                         <button type="button" command="--toggle" commandfor="mobile-primary-nav" class="inline-flex size-10 items-center justify-center rounded-md border border-white/10 bg-gray-900/60 text-gray-300 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 md:hidden" aria-controls="mobile-primary-nav">
                             <span class="sr-only">Abrir menú principal</span>
@@ -213,7 +212,7 @@
             <aside data-codex-drawer aria-labelledby="codex-drawer-title" aria-hidden="true" role="dialog" class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md translate-x-full transform flex-col overflow-hidden bg-gray-900/95 shadow-2xl ring-1 ring-white/10 transition-transform duration-300 ease-in-out sm:max-w-lg lg:max-w-xl">
                 <div class="flex h-16 items-center justify-between border-b border-white/10 px-5">
                     <div>
-                        <p id="codex-drawer-title" class="text-sm font-semibold text-white">Conversación con Codex</p>
+                        <p id="codex-drawer-title" class="text-sm font-semibold text-white">Panel de Chat</p>
                         <p class="text-xs text-gray-400">Abre el panel con Alt + C.</p>
                     </div>
                     <button type="button" data-codex-close class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-gray-900/60 text-gray-400 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
@@ -228,7 +227,7 @@
                         <div class="space-y-3">
                             <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">Hoy</span>
                             <div class="space-y-4 text-sm leading-6 text-gray-200">
-                                <p class="max-w-xs rounded-2xl bg-white/5 p-3 text-gray-100 shadow-sm ring-1 ring-white/10">Hola, soy Codex. ¿En qué puedo ayudarte con tu flujo?</p>
+                                <p class="max-w-xs rounded-2xl bg-white/5 p-3 text-gray-100 shadow-sm ring-1 ring-white/10">Hola, soy Chat. ¿En qué puedo ayudarte con tu flujo?</p>
                                 <div class="flex flex-col items-end gap-2 text-right">
                                     <p class="max-w-xs rounded-2xl bg-indigo-500/20 p-3 text-indigo-100 shadow-sm ring-1 ring-indigo-500/30">Necesito revisar la arquitectura del nuevo repositorio.</p>
                                     <p class="max-w-xs rounded-2xl bg-white/5 p-3 text-gray-100 shadow-sm ring-1 ring-white/10 text-left">Claro, dime qué módulo quieres explorar primero.</p>
@@ -245,7 +244,7 @@
                         </div>
                     </div>
                     <form class="border-t border-white/10 bg-gray-900/80 px-5 py-4">
-                        <label for="codex-message" class="sr-only">Escribe tu mensaje para Codex</label>
+                        <label for="codex-message" class="sr-only">Escribe tu mensaje para Chat</label>
                         <div class="flex items-center gap-3">
                             <input id="codex-message" data-codex-input type="text" placeholder="Escribe un mensaje..." class="flex-1 rounded-lg border border-white/10 bg-gray-900/70 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50" />
                             <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-950/40 transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">

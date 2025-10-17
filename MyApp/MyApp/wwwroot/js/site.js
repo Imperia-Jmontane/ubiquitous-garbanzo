@@ -415,6 +415,7 @@ const initializeResizableSidebar = () => {
 const initializeCodexDrawer = () => {
     const drawer = document.querySelector("[data-codex-drawer]");
     const backdrop = document.querySelector("[data-codex-backdrop]");
+    const floatingTrigger = document.querySelector("[data-codex-floating-trigger]");
 
     if (drawer === null || backdrop === null) {
         return;
@@ -425,6 +426,19 @@ const initializeCodexDrawer = () => {
     const input = drawer.querySelector("[data-codex-input]");
     let isOpen = false;
     let activeTrigger = null;
+
+    const updateFloatingTriggerVisibility = () => {
+        if (floatingTrigger === null) {
+            return;
+        }
+
+        if (isOpen === true) {
+            floatingTrigger.classList.add("hidden");
+        }
+        else {
+            floatingTrigger.classList.remove("hidden");
+        }
+    };
 
     const focusInput = () => {
         if (input instanceof HTMLElement === false) {
@@ -451,6 +465,7 @@ const initializeCodexDrawer = () => {
         backdrop.classList.remove("pointer-events-none");
         backdrop.classList.remove("opacity-0");
         backdrop.classList.add("opacity-100");
+        updateFloatingTriggerVisibility();
         focusInput();
     };
 
@@ -466,6 +481,8 @@ const initializeCodexDrawer = () => {
         backdrop.classList.add("opacity-0");
         backdrop.classList.remove("opacity-100");
         backdrop.classList.add("pointer-events-none");
+
+        updateFloatingTriggerVisibility();
 
         if (activeTrigger instanceof HTMLElement) {
             activeTrigger.focus();
@@ -516,6 +533,8 @@ const initializeCodexDrawer = () => {
             closeDrawer();
         }
     });
+
+    updateFloatingTriggerVisibility();
 };
 
 const initializeLevelSwitcher = () => {
