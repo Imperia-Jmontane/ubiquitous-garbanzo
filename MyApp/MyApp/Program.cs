@@ -1,6 +1,8 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using MyApp.Data;
+using Serilog;
+using Serilog.Context;
 
 namespace MyApp
 {
@@ -10,6 +12,10 @@ namespace MyApp
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+            builder.Host.UseSerilog((context, services, configuration) => configuration
+                .ReadFrom.Configuration(context.Configuration)
+                .Enrich.FromLogContext());
+
             string defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("The connection string 'DefaultConnection' was not found.");
 
             // Add services to the container.
@@ -17,6 +23,29 @@ namespace MyApp
             builder.Services.AddControllersWithViews();
 
             WebApplication app = builder.Build();
+
+            app.UseSerilogRequestLogging();
+
+            app.Use(async (context, next) =>
+            {
+                string state = context.TraceIdentifier;
+                string userId = context.User != null && context.User.Identity != null && context.User.Identity.IsAuthenticated
+                    ? context.User.Identity.Name ?? "unknown"
+                    : "anonymous";
+
+                IDisposable stateProperty = LogContext.PushProperty("state", state);
+                IDisposable userProperty = LogContext.PushProperty("userId", userId);
+
+                try
+                {
+                    await next.Invoke();
+                }
+                finally
+                {
+                    stateProperty.Dispose();
+                    userProperty.Dispose();
+                }
+            });
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
