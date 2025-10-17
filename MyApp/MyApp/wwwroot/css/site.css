@@ -10,7 +10,8 @@ html {
 body {
     margin: 0;
     min-height: 100%;
-    background-color: #f9fafb;
+    background-color: #020617;
+    color: #f8fafc;
 }
 
 a {
@@ -24,4 +25,37 @@ a:hover {
 
 main:focus {
     outline: none;
+}
+
+[data-resize-handle]:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: 9999px;
+}
+
+[data-resizable-sidebar] pre {
+    margin: 0;
+    font-family: "Fira Code", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+[data-sidebar-backdrop].opacity-100 {
+    backdrop-filter: blur(2px);
+}
+
+@media (max-width: 1023px) {
+    [data-resizable-sidebar] {
+        width: min(100%, 24rem) !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    [data-resizable-sidebar].is-collapsed {
+        display: none;
+    }
+
+    [data-resize-handle].is-collapsed {
+        display: none;
+    }
 }
