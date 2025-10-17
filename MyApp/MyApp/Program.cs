@@ -1,6 +1,17 @@
 using System;
+using System.Diagnostics.Metrics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using FluentValidation.AspNetCore;
+using FluentValidation;
+using MediatR;
 using MyApp.Data;
+using MyApp.Application.Abstractions;
+using MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount;
+using MyApp.Infrastructure.GitHub;
+using MyApp.Infrastructure.Persistence;
+using MyApp.Infrastructure.Secrets;
+using MyApp.Infrastructure.Time;
 using Serilog;
 using Serilog.Context;
 
@@ -21,6 +32,17 @@ namespace MyApp
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(defaultConnectionString));
             builder.Services.AddControllersWithViews();
+            builder.Services.AddFluentValidationAutoValidation();
+            builder.Services.AddFluentValidationClientsideAdapters();
+            builder.Services.AddMediatR(typeof(LinkGitHubAccountCommand));
+            builder.Services.AddValidatorsFromAssemblyContaining<LinkGitHubAccountCommandValidator>();
+            builder.Services.AddSingleton<ISystemClock, SystemClock>();
+            builder.Services.AddSingleton<Meter>(_ => new Meter("MyApp.GitHubOAuth"));
+            builder.Services.AddSingleton<ISecretProvider, ConfigurationSecretProvider>();
+            builder.Services.AddScoped<IGitCredentialStore, GitCredentialStore>();
+            builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
+            builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
+            builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
 
             WebApplication app = builder.Build();
 
