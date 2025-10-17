@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "kill-backend-ports",
+      "type": "shell",
+      "command": "lsof -ti :5290,:7001 | xargs -r kill -9",
+      "presentation": {
+        "reveal": "never"
+      }
+    },
+    {
+      "label": "build-backend",
+      "type": "shell",
+      "dependsOn": [
+        "kill-backend-ports"
+      ],
+      "dependsOrder": "sequence",
+      "command": "dotnet build MyApp/MyApp.sln",
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

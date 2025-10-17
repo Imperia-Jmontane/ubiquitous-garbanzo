@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API_MyApp",
+      "type": "coreclr",
+      "request": "launch",
+      "requireExactSource": false,
+      "preLaunchTask": "build-backend",
+      "program": "${workspaceFolder}/MyApp/MyApp/bin/Debug/net9.0/MyApp.dll",
+      "cwd": "${workspaceFolder}/MyApp/MyApp",
+      "args": [
+        "--launch-profile",
+        "https"
+      ],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "All APIs",
+      "preLaunchTask": "build-backend",
+      "configurations": [
+        "API_MyApp"
+      ]
+    }
+  ]
+}
