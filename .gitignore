@@ -6,3 +6,11 @@
 /MyApp/.vs/MyApp
 /MyApp/MyApp/obj
 /MyApp/MyApp/bin
+/MyApp/MyApp.Application/bin
+/MyApp/MyApp.Application/obj
+/MyApp/MyApp.Domain/bin
+/MyApp/MyApp.Domain/obj
+/MyApp/MyApp.Infrastructure/bin
+/MyApp/MyApp.Infrastructure/obj
+/MyApp/tests/**/bin
+/MyApp/tests/**/obj
