@@ -4,6 +4,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     initializeProfileMenu();
     initializeResizableSidebar();
+    initializeCodexDrawer();
     initializeLevelSwitcher();
 });
 
@@ -409,6 +410,112 @@ const initializeResizableSidebar = () => {
             setCollapsed(false);
         });
     }
+};
+
+const initializeCodexDrawer = () => {
+    const drawer = document.querySelector("[data-codex-drawer]");
+    const backdrop = document.querySelector("[data-codex-backdrop]");
+
+    if (drawer === null || backdrop === null) {
+        return;
+    }
+
+    const toggleButtons = Array.from(document.querySelectorAll("[data-codex-toggle]"));
+    const closeButtons = Array.from(document.querySelectorAll("[data-codex-close]"));
+    const input = drawer.querySelector("[data-codex-input]");
+    let isOpen = false;
+    let activeTrigger = null;
+
+    const focusInput = () => {
+        if (input instanceof HTMLElement === false) {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            if (input instanceof HTMLElement) {
+                input.focus();
+            }
+        });
+    };
+
+    const openDrawer = (trigger) => {
+        if (isOpen === true) {
+            return;
+        }
+
+        isOpen = true;
+        activeTrigger = trigger instanceof HTMLElement ? trigger : null;
+        drawer.classList.remove("translate-x-full");
+        drawer.classList.add("translate-x-0");
+        drawer.setAttribute("aria-hidden", "false");
+        backdrop.classList.remove("pointer-events-none");
+        backdrop.classList.remove("opacity-0");
+        backdrop.classList.add("opacity-100");
+        focusInput();
+    };
+
+    const closeDrawer = () => {
+        if (isOpen === false) {
+            return;
+        }
+
+        isOpen = false;
+        drawer.classList.add("translate-x-full");
+        drawer.classList.remove("translate-x-0");
+        drawer.setAttribute("aria-hidden", "true");
+        backdrop.classList.add("opacity-0");
+        backdrop.classList.remove("opacity-100");
+        backdrop.classList.add("pointer-events-none");
+
+        if (activeTrigger instanceof HTMLElement) {
+            activeTrigger.focus();
+        }
+
+        activeTrigger = null;
+    };
+
+    const toggleDrawer = (trigger) => {
+        if (isOpen === true) {
+            closeDrawer();
+        }
+        else {
+            openDrawer(trigger);
+        }
+    };
+
+    toggleButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            toggleDrawer(button);
+        });
+    });
+
+    closeButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            closeDrawer();
+        });
+    });
+
+    backdrop.addEventListener("click", () => {
+        closeDrawer();
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.altKey === true) {
+            const key = typeof event.key === "string" ? event.key.toLowerCase() : "";
+
+            if (key === "c") {
+                event.preventDefault();
+                toggleDrawer(null);
+                return;
+            }
+        }
+
+        if (event.key === "Escape" && isOpen === true) {
+            closeDrawer();
+        }
+    });
 };
 
 const initializeLevelSwitcher = () => {
