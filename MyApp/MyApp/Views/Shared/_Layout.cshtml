@@ -132,7 +132,13 @@
                                 <span class="ml-3 hidden text-sm font-medium text-white sm:block">Sofía Rivera</span>
                             </button>
                             <div class="absolute right-0 top-full z-50 mt-2 hidden w-40 rounded-md bg-gray-900 py-2 shadow-lg outline outline-1 -outline-offset-1 outline-white/10" role="menu" aria-label="Menú de usuario" data-profile-menu>
-                                <a href="#" class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden" role="menuitem">Perfil</a>
+                                <a asp-area=""
+                                   asp-controller="Profile"
+                                   asp-action="Index"
+                                   class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden"
+                                   role="menuitem">
+                                    Perfil
+                                </a>
                                 <a href="#" class="block px-3 py-1.5 text-sm text-white hover:bg-white/5 focus:bg-white/5 focus:outline-hidden" role="menuitem">Salir</a>
                             </div>
                         </div>

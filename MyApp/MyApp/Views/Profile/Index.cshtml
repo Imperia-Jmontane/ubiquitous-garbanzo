@@ -78,5 +78,112 @@
                 <span class="text-xs text-gray-400" data-github-link-status></span>
             </div>
         </div>
+
+        <div class="rounded-2xl border border-white/10 bg-gray-900/50 p-4">
+            <div class="flex flex-wrap items-center gap-4">
+                @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.AvatarUrl))
+                {
+                    <img src="@Model.GitHubAccount.AvatarUrl" alt="Avatar de GitHub" class="size-14 rounded-full border border-white/10 shadow-md shadow-black/40" />
+                }
+                <div class="flex-1 space-y-1">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-lg font-semibold text-white">Cuenta vinculada</h3>
+                        @if (Model.GitHubAccount.IsLinked)
+                        {
+                            <span class="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">Activa</span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center rounded-full bg-gray-600/30 px-3 py-1 text-xs font-semibold text-gray-300">Sin vincular</span>
+                        }
+                    </div>
+                    @if (Model.GitHubAccount.IsLinked && Model.GitHubAccount.DetailsAvailable)
+                    {
+                        <p class="text-sm text-gray-300">
+                            @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Name))
+                            {
+                                <span class="font-medium text-white">@Model.GitHubAccount.Name</span>
+                                @:·
+                            }
+                            <span class="font-medium text-gray-100">@Model.GitHubAccount.Login</span>
+                            @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Email))
+                            {
+                                @:·
+                                <a href="mailto:@Model.GitHubAccount.Email" class="text-indigo-300 hover:text-indigo-200">@Model.GitHubAccount.Email</a>
+                            }
+                        </p>
+                    }
+                    else if (!Model.GitHubAccount.IsLinked)
+                    {
+                        <p class="text-sm text-gray-400">Aún no hay una cuenta de GitHub vinculada para este usuario.</p>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-gray-400">No se pudieron obtener los detalles de la cuenta de GitHub.</p>
+                    }
+                </div>
+                @if (Model.GitHubAccount.IsLinked && !string.IsNullOrWhiteSpace(Model.GitHubAccount.ProfileUrl))
+                {
+                    <a href="@Model.GitHubAccount.ProfileUrl"
+                       class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+                       target="_blank"
+                       rel="noopener noreferrer">
+                        Ver en GitHub
+                    </a>
+                }
+            </div>
+
+            @if (Model.GitHubAccount.IsLinked)
+            {
+                <dl class="mt-4 grid gap-4 text-sm text-gray-300 sm:grid-cols-2">
+                    <div class="space-y-1">
+                        <dt class="font-semibold text-gray-200">Identificador externo</dt>
+                        <dd class="break-all text-gray-400">@Model.GitHubAccount.ExternalUserId</dd>
+                    </div>
+                    <div class="space-y-1">
+                        <dt class="font-semibold text-gray-200">Expira</dt>
+                        <dd class="text-gray-400">
+                            @if (Model.GitHubAccount.ExpiresAt.HasValue)
+                            {
+                                @Model.GitHubAccount.ExpiresAt.Value.ToLocalTime().ToString("f")
+                            }
+                            else
+                            {
+                                @:Desconocido
+                            }
+                        </dd>
+                    </div>
+                    <div class="space-y-1">
+                        <dt class="font-semibold text-gray-200">Actualizable</dt>
+                        <dd class="text-gray-400">@((Model.GitHubAccount.SupportsRefresh ? "Sí" : "No"))</dd>
+                    </div>
+                    <div class="space-y-1">
+                        <dt class="font-semibold text-gray-200">Organizaciones</dt>
+                        <dd class="text-gray-400">
+                            @if (Model.GitHubAccount.Organizations.Count > 0)
+                            {
+                                <ul class="list-disc space-y-1 pl-4">
+                                    @foreach (string organization in Model.GitHubAccount.Organizations)
+                                    {
+                                        <li>@organization</li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                @:No se detectaron organizaciones asociadas.
+                            }
+                        </dd>
+                    </div>
+                </dl>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Error))
+            {
+                <div class="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+                    @Model.GitHubAccount.Error
+                </div>
+            }
+        </div>
     </article>
 </section>

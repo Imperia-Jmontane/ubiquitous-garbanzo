@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Application.GitHubOAuth.DTOs;
 using MyApp.Application.GitHubOAuth.Queries.GetGitHubOAuthStatus;
+using MyApp.Application.GitHubOAuth.Queries.GetGitHubAccountDetails;
 using MyApp.Models.Profile;
 
 namespace MyApp.Controllers
@@ -23,6 +24,8 @@ namespace MyApp.Controllers
         public async Task<IActionResult> Index(CancellationToken cancellationToken)
         {
             GitHubOAuthStatusDto status = await mediator.Send(new GetGitHubOAuthStatusQuery(), cancellationToken);
+            GetGitHubAccountDetailsQuery accountDetailsQuery = new GetGitHubAccountDetailsQuery(DemoUserId);
+            GitHubAccountDetailsDto accountDetails = await mediator.Send(accountDetailsQuery, cancellationToken);
             string redirectUri = Url.Action("GitHubCallback", "Auth", null, Request.Scheme) ?? string.Empty;
             ProfileViewModel viewModel = new ProfileViewModel
             {
@@ -30,7 +33,8 @@ namespace MyApp.Controllers
                 ClientIdPreview = CreateClientIdPreview(status.ClientId),
                 GitHubScopes = new List<string>(status.Scopes),
                 UserId = DemoUserId,
-                GitHubRedirectUri = redirectUri
+                GitHubRedirectUri = redirectUri,
+                GitHubAccount = CreateGitHubAccountViewModel(accountDetails)
             };
 
             return View(viewModel);
@@ -50,6 +54,39 @@ namespace MyApp.Controllers
 
             string suffix = clientId.Substring(clientId.Length - 4);
             return string.Concat("••••", suffix);
+        }
+
+        private static GitHubAccountViewModel CreateGitHubAccountViewModel(GitHubAccountDetailsDto details)
+        {
+            GitHubAccountViewModel viewModel = new GitHubAccountViewModel
+            {
+                IsLinked = details.IsLinked,
+                Provider = details.Provider,
+                ExternalUserId = details.ExternalUserId,
+                ExpiresAt = details.ExpiresAt,
+                SupportsRefresh = details.SupportsRefresh
+            };
+
+            if (details.Profile != null)
+            {
+                viewModel.DetailsAvailable = true;
+                viewModel.Login = details.Profile.Login;
+                viewModel.Name = details.Profile.Name;
+                viewModel.Email = details.Profile.Email;
+                viewModel.AvatarUrl = details.Profile.AvatarUrl;
+                viewModel.ProfileUrl = details.Profile.ProfileUrl;
+                foreach (string organization in details.Profile.Organizations)
+                {
+                    viewModel.Organizations.Add(organization);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(details.ProfileFetchError))
+            {
+                viewModel.Error = details.ProfileFetchError;
+            }
+
+            return viewModel;
         }
     }
 }

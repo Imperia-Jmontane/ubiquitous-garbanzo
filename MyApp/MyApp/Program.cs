@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.IO;
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -135,6 +136,13 @@ namespace MyApp
             builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
             builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection("Bootstrap"));
             builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
+            builder.Services.AddHttpClient<IGitHubUserProfileClient, GitHubUserProfileClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.github.com/", UriKind.Absolute);
+                client.DefaultRequestHeaders.UserAgent.Clear();
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MyApp", "1.0"));
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+            });
             builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
             builder.Services.AddScoped<IGitHubOAuthStateRepository, GitHubOAuthStateRepository>();
             builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();

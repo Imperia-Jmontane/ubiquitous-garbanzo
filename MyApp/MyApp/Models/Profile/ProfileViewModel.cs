@@ -14,5 +14,7 @@ namespace MyApp.Models.Profile
         public Guid UserId { get; set; }
 
         public string GitHubRedirectUri { get; set; } = string.Empty;
+
+        public GitHubAccountViewModel GitHubAccount { get; set; } = new GitHubAccountViewModel();
     }
 }
