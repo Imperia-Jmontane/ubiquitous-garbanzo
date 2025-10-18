@@ -1,0 +1,82 @@
+@model MyApp.Models.Profile.ProfileViewModel
+
+@{
+    ViewData["Title"] = "Perfil";
+}
+
+@{
+    string linkSuccessMessage = TempData.ContainsKey("GitHubLinkSuccess") && TempData["GitHubLinkSuccess"] is string success ? success : string.Empty;
+    string linkErrorMessage = TempData.ContainsKey("GitHubLinkError") && TempData["GitHubLinkError"] is string error ? error : string.Empty;
+}
+
+<section class="mx-auto max-w-4xl space-y-8 text-gray-100">
+    <header class="rounded-3xl border border-white/10 bg-gray-900/80 p-6 shadow-inner shadow-black/20">
+        <div class="space-y-3">
+            <h1 class="text-2xl font-semibold text-white">Perfil y conexiones</h1>
+            <p class="text-sm text-gray-300">Gestiona la conexión con GitHub para habilitar la importación de repositorios y flujos.</p>
+        </div>
+    </header>
+
+    <article class="space-y-6 rounded-3xl border border-white/10 bg-gray-900/70 p-6 shadow-inner shadow-black/30">
+        @if (!string.IsNullOrWhiteSpace(linkSuccessMessage))
+        {
+            <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                @linkSuccessMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(linkErrorMessage))
+        {
+            <div class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+                @linkErrorMessage
+            </div>
+        }
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-white">GitHub OAuth</h2>
+                <p class="mt-1 text-sm text-gray-400">Scopes requeridos: <span class="font-medium text-gray-200">@string.Join(", ", Model.GitHubScopes)</span></p>
+            </div>
+            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold @(Model.GitHubConfigured ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-200")">
+                <span class="size-2 rounded-full @(Model.GitHubConfigured ? "bg-emerald-400" : "bg-amber-400")"></span>
+                @(Model.GitHubConfigured ? "Configurado" : "Pendiente")
+            </span>
+        </div>
+
+        @if (Model.GitHubConfigured)
+        {
+            <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                <p>GitHub OAuth está habilitado. Client ID registrado: <span class="font-semibold">@Model.ClientIdPreview</span>.</p>
+            </div>
+        }
+        else
+        {
+            <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <p>Aún no se configuraron los secretos de GitHub. Completa el proceso de bootstrap para habilitar la vinculación.</p>
+                <div class="mt-3">
+                    <a asp-controller="Bootstrap" asp-action="GitHub" class="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-900/40 transition hover:bg-amber-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400">
+                        Configurar GitHub OAuth
+                    </a>
+                </div>
+            </div>
+        }
+
+        <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-gray-900/50 p-4"
+             data-github-link
+             data-user-id="@Model.UserId"
+             data-redirect-uri="@Model.GitHubRedirectUri"
+             data-github-configured="@(Model.GitHubConfigured ? "true" : "false")">
+            <p class="text-sm text-gray-300">
+                Vincula tu cuenta de GitHub para importar repositorios de forma segura. Esta acción solicitará autorización en GitHub y almacenará los tokens cifrados.
+            </p>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button"
+                        data-github-link-button
+                        class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 @(Model.GitHubConfigured ? "bg-indigo-500 text-white shadow-indigo-900/40 hover:bg-indigo-400" : "cursor-not-allowed bg-gray-700 text-gray-400 shadow-gray-900/30")"
+                        @(Model.GitHubConfigured ? "" : "disabled=\"disabled\" aria-disabled=\"true\"")>
+                    Vincular cuenta de GitHub
+                </button>
+                <span class="text-xs text-gray-400" data-github-link-status></span>
+            </div>
+        </div>
+    </article>
+</section>

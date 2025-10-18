@@ -44,6 +44,8 @@ MyApp/**/log/
 *.db-wal
 *.sqlite-shm
 *.sqlite-wal
+MyApp/**/App_Data/secret-store.json
+MyApp/**/App_Data/keys/
 
 # Publish and deployment artifacts
 MyApp/**/publish/

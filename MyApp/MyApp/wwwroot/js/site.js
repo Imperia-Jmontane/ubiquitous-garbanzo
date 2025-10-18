@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeCodexDrawer();
     initializeLevelSwitcher();
     initializeFlowchartTabs();
+    initializeGitHubLinking();
 });
 
 let activeFlowchartTabManager = null;
@@ -415,6 +416,89 @@ const initializeResizableSidebar = () => {
             setCollapsed(false);
         });
     }
+};
+
+const initializeGitHubLinking = () => {
+    const container = document.querySelector("[data-github-link]");
+    if (container === null) {
+        return;
+    }
+
+    const button = container.querySelector("[data-github-link-button]");
+    const status = container.querySelector("[data-github-link-status]");
+    if (button === null || status === null) {
+        return;
+    }
+
+    const userId = container.getAttribute("data-user-id") ?? "";
+    const redirectUri = container.getAttribute("data-redirect-uri") ?? "";
+    const configuredAttribute = container.getAttribute("data-github-configured") ?? "false";
+    const isConfigured = configuredAttribute.toLowerCase() === "true";
+
+    if (isConfigured === false) {
+        status.textContent = "Primero configura GitHub OAuth.";
+        return;
+    }
+
+    let isProcessing = false;
+
+    button.addEventListener("click", (event) => {
+        event.preventDefault();
+
+        if (isProcessing === true) {
+            return;
+        }
+
+        if (userId.length === 0 || redirectUri.length === 0) {
+            status.textContent = "No se pudo resolver el usuario ni el redirect.";
+            return;
+        }
+
+        isProcessing = true;
+        button.setAttribute("disabled", "disabled");
+        status.textContent = "Redirigiendo a GitHub...";
+
+        const payload = {
+            userId: userId,
+            redirectUri: redirectUri
+        };
+
+        fetch("/api/auth/github/start", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    if (response.status === 503) {
+                        status.textContent = "GitHub OAuth aún no está configurado.";
+                    }
+                    else if (response.status === 400) {
+                        status.textContent = "La petición es inválida.";
+                    }
+                    else {
+                        status.textContent = "Hubo un error al iniciar la vinculación.";
+                    }
+                    throw new Error("GitHub OAuth start failed");
+                }
+
+                return await response.json();
+            })
+            .then((data) => {
+                if (data === null || typeof data.authorizationUrl !== "string") {
+                    status.textContent = "No se recibió la URL de autorización.";
+                    return;
+                }
+
+                window.location.href = data.authorizationUrl;
+            })
+            .catch(() => {
+                isProcessing = false;
+                button.removeAttribute("disabled");
+            });
+    });
 };
 
 const initializeCodexDrawer = () => {

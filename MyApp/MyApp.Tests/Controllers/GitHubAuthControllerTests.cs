@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -41,6 +42,28 @@ namespace MyApp.Tests.Controllers
             OkObjectResult okResult = Assert.IsType<OkObjectResult>(response);
             StartGitHubOAuthResultDto resultDto = Assert.IsType<StartGitHubOAuthResultDto>(okResult.Value);
             Assert.Equal(userId, resultDto.UserId);
+        }
+
+        [Fact]
+        public async Task Start_ShouldReturnServiceUnavailableWhenSecretsMissing()
+        {
+            Mock<IMediator> mediatorMock = new Mock<IMediator>();
+            Mock<ILogger<GitHubAuthController>> loggerMock = new Mock<ILogger<GitHubAuthController>>();
+
+            mediatorMock.Setup(mediator => mediator.Send(It.IsAny<StartGitHubOAuthCommand>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Not configured"));
+
+            GitHubAuthController controller = new GitHubAuthController(mediatorMock.Object, loggerMock.Object);
+            GitHubOAuthStartRequest request = new GitHubOAuthStartRequest
+            {
+                UserId = Guid.NewGuid(),
+                RedirectUri = "https://localhost/signin-github"
+            };
+
+            IActionResult response = await controller.Start(request, CancellationToken.None);
+
+            ObjectResult problemResult = Assert.IsType<ObjectResult>(response);
+            Assert.Equal(StatusCodes.Status503ServiceUnavailable, problemResult.StatusCode);
         }
 
         [Fact]

@@ -1,0 +1,104 @@
+@model MyApp.Models.Bootstrap.GitHubBootstrapViewModel
+
+@{
+    ViewData["Title"] = "Configurar GitHub OAuth";
+}
+
+<section class="mx-auto max-w-3xl space-y-8 text-gray-100">
+    <header class="rounded-3xl border border-white/10 bg-gray-900/80 p-6 shadow-inner shadow-black/20">
+        <div class="space-y-4">
+            <div>
+                <h1 class="text-2xl font-semibold text-white">Configurar GitHub OAuth</h1>
+                <p class="mt-2 text-sm text-gray-300">
+                    Ingresa los secretos de OAuth provistos por GitHub para habilitar el vínculo de cuentas dentro de la aplicación.
+                </p>
+            </div>
+            @if (Model.IsConfigured)
+            {
+                <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <p class="text-sm text-emerald-200">
+                        GitHub OAuth está configurado. Client ID actual: <span class="font-semibold">@Model.ClientIdPreview</span>.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                    <p class="text-sm text-amber-200">
+                        Aún no se registraron secretos de GitHub. Hasta que completes este formulario se bloqueará el flujo de vinculación.
+                    </p>
+                </div>
+            }
+            <div>
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-400">Scopes requeridos</h2>
+                <ul class="mt-2 flex flex-wrap gap-2 text-xs text-gray-300">
+                    @foreach (string scope in Model.Scopes)
+                    {
+                        <li class="inline-flex items-center gap-1 rounded-full border border-white/10 px-3 py-1">
+                            <span class="size-1.5 rounded-full bg-indigo-400"></span>
+                            @scope
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <article class="rounded-3xl border border-white/10 bg-gray-900/70 p-6 shadow-inner shadow-black/30">
+        <form asp-action="GitHub" asp-controller="Bootstrap" method="post" class="space-y-6">
+            @Html.AntiForgeryToken()
+
+            @if (Model.Success)
+            {
+                <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <p class="text-sm text-emerald-100">
+                        Los secretos fueron guardados correctamente. Puedes regresar al perfil para vincular tu cuenta de GitHub.
+                    </p>
+                    <div class="mt-3">
+                        <a asp-controller="Profile" asp-action="Index" class="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-900/40 transition hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400">
+                            Ir al Perfil
+                        </a>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+                    @Model.ErrorMessage
+                </div>
+            }
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div asp-validation-summary="ModelOnly" class="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100"></div>
+            }
+
+            <div class="space-y-2">
+                <label asp-for="Form.ClientId" class="block text-sm font-medium text-gray-200">Client ID</label>
+                <input asp-for="Form.ClientId" type="text" autocomplete="off" class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/30 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+                <span asp-validation-for="Form.ClientId" class="text-sm text-rose-300"></span>
+            </div>
+
+            <div class="space-y-2">
+                <label asp-for="Form.ClientSecret" class="block text-sm font-medium text-gray-200">Client Secret</label>
+                <input asp-for="Form.ClientSecret" type="password" autocomplete="off" class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/30 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+                <span asp-validation-for="Form.ClientSecret" class="text-sm text-rose-300"></span>
+            </div>
+
+            <div class="space-y-2">
+                <label asp-for="Form.SetupPassword" class="block text-sm font-medium text-gray-200">Password temporal</label>
+                <input asp-for="Form.SetupPassword" type="password" autocomplete="off" class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/30 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" />
+                <span asp-validation-for="Form.SetupPassword" class="text-sm text-rose-300"></span>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
+                    Guardar secretos
+                </button>
+            </div>
+        </form>
+    </article>
+</section>
+
+<partial name="_ValidationScriptsPartial" />

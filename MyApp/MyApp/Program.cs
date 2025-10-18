@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.IO;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using FluentValidation.AspNetCore;
@@ -10,11 +12,13 @@ using MyApp.Data;
 using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount;
 using MyApp.Application.GitHubOAuth.Configuration;
+using MyApp.Application.Configuration;
 using MyApp.Infrastructure.GitHub;
 using MyApp.Infrastructure.Persistence;
 using MyApp.Infrastructure.Secrets;
 using MyApp.Infrastructure.Time;
 using MyApp.Domain.Scopes;
+using MyApp.Middleware;
 using Serilog;
 using Serilog.Context;
 using Microsoft.OpenApi.Models;
@@ -31,10 +35,19 @@ namespace MyApp
                 .ReadFrom.Configuration(context.Configuration)
                 .Enrich.FromLogContext());
 
-            string defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("The connection string 'DefaultConnection' was not found.");
+            string appDataPath = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
+            Directory.CreateDirectory(appDataPath);
+
+            string dataProtectionPath = Path.Combine(appDataPath, "keys");
+            Directory.CreateDirectory(dataProtectionPath);
+            DirectoryInfo dataProtectionDirectory = new DirectoryInfo(dataProtectionPath);
+            builder.Services.AddDataProtection().PersistKeysToFileSystem(dataProtectionDirectory);
+
+            string rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("The connection string 'DefaultConnection' was not found.");
+            string defaultConnectionString = rawConnectionString.Replace("{AppDataPath}", appDataPath, StringComparison.OrdinalIgnoreCase);
 
             // Add services to the container.
-            builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(defaultConnectionString));
+            builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(defaultConnectionString));
             builder.Services.AddControllersWithViews();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
@@ -89,9 +102,12 @@ namespace MyApp
             builder.Services.AddValidatorsFromAssemblyContaining<LinkGitHubAccountCommandValidator>();
             builder.Services.AddSingleton<ISystemClock, SystemClock>();
             builder.Services.AddSingleton<Meter>(_ => new Meter("MyApp.GitHubOAuth"));
+            builder.Services.AddSingleton<IWritableSecretStore, DataProtectedWritableSecretStore>();
             builder.Services.AddSingleton<ISecretProvider, ConfigurationSecretProvider>();
             builder.Services.AddScoped<IGitCredentialStore, GitCredentialStore>();
+            builder.Services.AddSingleton<IGitHubOAuthSettingsProvider, GitHubOAuthSettingsProvider>();
             builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
+            builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection("Bootstrap"));
             builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
             builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
             builder.Services.AddScoped<IGitHubOAuthStateRepository, GitHubOAuthStateRepository>();
@@ -139,6 +155,8 @@ namespace MyApp
 
             app.UseHttpsRedirection();
             app.UseRouting();
+
+            app.UseMiddleware<GitHubOAuthBootstrapMiddleware>();
 
             app.UseAuthorization();
 

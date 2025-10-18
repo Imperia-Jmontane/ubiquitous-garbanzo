@@ -40,7 +40,6 @@ namespace MyApp.Controllers.Api
             {
                 return ValidationProblem(ModelState);
             }
-
             try
             {
                 StartGitHubOAuthCommand command = new StartGitHubOAuthCommand(request.UserId, request.RedirectUri);
@@ -52,6 +51,17 @@ namespace MyApp.Controllers.Api
             {
                 logger.LogWarning(exception, "Validation failure when starting GitHub OAuth for user {UserId}", request.UserId);
                 return CreateValidationProblem(exception);
+            }
+            catch (System.InvalidOperationException exception)
+            {
+                logger.LogWarning(exception, "GitHub OAuth secrets are not configured. Cannot start OAuth for user {UserId}.", request.UserId);
+                ProblemDetails problem = new ProblemDetails
+                {
+                    Title = "GitHub OAuth no configurado",
+                    Detail = "Debes configurar los secretos de GitHub antes de iniciar la vinculación.",
+                    Status = StatusCodes.Status503ServiceUnavailable
+                };
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, problem);
             }
             catch (System.Exception exception)
             {

@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Application.GitHubOAuth.DTOs;
@@ -22,20 +21,20 @@ namespace MyApp.Application.GitHubOAuth.Commands.StartGitHubOAuth
         private readonly ISystemClock systemClock;
         private readonly IValidator<StartGitHubOAuthCommand> validator;
         private readonly ILogger<StartGitHubOAuthCommandHandler> logger;
-        private readonly GitHubOAuthOptions options;
+        private readonly IGitHubOAuthSettingsProvider settingsProvider;
 
         public StartGitHubOAuthCommandHandler(
             IGitHubOAuthStateRepository stateRepository,
             ISystemClock systemClock,
             IValidator<StartGitHubOAuthCommand> validator,
             ILogger<StartGitHubOAuthCommandHandler> logger,
-            IOptions<GitHubOAuthOptions> options)
+            IGitHubOAuthSettingsProvider settingsProvider)
         {
             this.stateRepository = stateRepository;
             this.systemClock = systemClock;
             this.validator = validator;
             this.logger = logger;
-            this.options = options.Value;
+            this.settingsProvider = settingsProvider;
         }
 
         public async Task<StartGitHubOAuthResultDto> Handle(StartGitHubOAuthCommand request, CancellationToken cancellationToken)
@@ -44,6 +43,13 @@ namespace MyApp.Application.GitHubOAuth.Commands.StartGitHubOAuth
 
             await stateRepository.RemoveExpiredAsync(systemClock.UtcNow, cancellationToken);
 
+            GitHubOAuthSettings settings = await settingsProvider.GetSettingsAsync(cancellationToken);
+            if (!settings.IsConfigured || string.IsNullOrWhiteSpace(settings.ClientId))
+            {
+                logger.LogWarning("GitHub OAuth secrets are not configured. Unable to start authorization for user {UserId}.", request.UserId);
+                throw new InvalidOperationException("GitHub OAuth secrets have not been configured.");
+            }
+
             DateTimeOffset issuedAt = systemClock.UtcNow;
             DateTimeOffset expiresAt = issuedAt.AddMinutes(10);
             string state = GenerateStateToken();
@@ -51,13 +57,13 @@ namespace MyApp.Application.GitHubOAuth.Commands.StartGitHubOAuth
             GitHubOAuthState oauthState = new GitHubOAuthState(request.UserId, state, request.RedirectUri, expiresAt);
             await stateRepository.AddAsync(oauthState, cancellationToken);
 
-            string scopeParameter = BuildScopeParameter(options.Scopes);
-            string authorizationUrl = BuildAuthorizationUrl(request.RedirectUri, state, scopeParameter);
-            bool canClone = MandatoryScopeSet.AreSatisfiedBy(options.Scopes);
+            string scopeParameter = BuildScopeParameter(settings.Scopes);
+            string authorizationUrl = BuildAuthorizationUrl(settings.AuthorizationEndpoint, settings.ClientId, request.RedirectUri, state, scopeParameter);
+            bool canClone = MandatoryScopeSet.AreSatisfiedBy(settings.Scopes);
 
             logger.LogInformation("GitHub OAuth start requested for user {UserId}. State: {State}", request.UserId, state);
 
-            return new StartGitHubOAuthResultDto(request.UserId, authorizationUrl, state, options.Scopes, expiresAt, canClone);
+            return new StartGitHubOAuthResultDto(request.UserId, authorizationUrl, state, settings.Scopes, expiresAt, canClone);
         }
 
         private static string GenerateStateToken()
@@ -95,12 +101,12 @@ namespace MyApp.Application.GitHubOAuth.Commands.StartGitHubOAuth
             return builder.ToString();
         }
 
-        private string BuildAuthorizationUrl(string redirectUri, string state, string scopeParameter)
+        private static string BuildAuthorizationUrl(string authorizationEndpoint, string clientId, string redirectUri, string state, string scopeParameter)
         {
             StringBuilder builder = new StringBuilder();
-            builder.Append(options.AuthorizationEndpoint);
+            builder.Append(authorizationEndpoint);
             builder.Append("?client_id=");
-            builder.Append(Uri.EscapeDataString(options.ClientId));
+            builder.Append(Uri.EscapeDataString(clientId));
             builder.Append("&redirect_uri=");
             builder.Append(Uri.EscapeDataString(redirectUri));
 
