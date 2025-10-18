@@ -64,6 +64,8 @@ namespace MyApp.Tests.Controllers
         {
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(new List<LocalRepository>());
+            CloneRepositoryResult cloneResult = new CloneRepositoryResult(true, false, "/tmp/ubiquitous-garbanzo", string.Empty);
+            repositoryServiceMock.Setup(service => service.CloneRepository(It.IsAny<string>())).Returns(cloneResult);
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
             HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object);
@@ -80,6 +82,30 @@ namespace MyApp.Tests.Controllers
 
             RedirectToActionResult redirectResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal(nameof(HomeController.Index), redirectResult.ActionName);
+        }
+
+        [Fact]
+        public void AddRepository_ShouldReturnViewWhenCloneFails()
+        {
+            Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
+            repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(new List<LocalRepository>());
+            CloneRepositoryResult cloneResult = new CloneRepositoryResult(false, false, string.Empty, "Clone error");
+            repositoryServiceMock.Setup(service => service.CloneRepository(It.IsAny<string>())).Returns(cloneResult);
+            Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
+
+            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object);
+
+            AddRepositoryRequest request = new AddRepositoryRequest
+            {
+                RepositoryUrl = "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo"
+            };
+
+            IActionResult result = controller.AddRepository(request);
+
+            ViewResult viewResult = Assert.IsType<ViewResult>(result);
+            HomeIndexViewModel viewModel = Assert.IsType<HomeIndexViewModel>(viewResult.Model);
+            Assert.False(viewModel.HasRepositories);
+            Assert.True(controller.ModelState.ContainsKey("AddRepository.RepositoryUrl"));
         }
     }
 }

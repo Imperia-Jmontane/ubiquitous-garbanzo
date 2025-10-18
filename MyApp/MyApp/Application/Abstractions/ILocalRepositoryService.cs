@@ -6,5 +6,7 @@ namespace MyApp.Application.Abstractions
     public interface ILocalRepositoryService
     {
         IReadOnlyCollection<LocalRepository> GetRepositories();
+
+        CloneRepositoryResult CloneRepository(string repositoryUrl);
     }
 }

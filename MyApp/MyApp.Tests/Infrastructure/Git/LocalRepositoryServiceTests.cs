@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using MyApp.Application.Configuration;
 using MyApp.Domain.Repositories;
 using MyApp.Infrastructure.Git;
+using MyApp.Application.Abstractions;
 using Xunit;
 
 namespace MyApp.Tests.Infrastructure.Git
@@ -20,6 +21,35 @@ namespace MyApp.Tests.Infrastructure.Git
         {
             _rootPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_rootPath);
+        }
+
+        [Fact]
+        public void CloneRepository_ShouldCloneIntoRootPath()
+        {
+            string cloneRoot = Path.Combine(_rootPath, "clones");
+            Directory.CreateDirectory(cloneRoot);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = cloneRoot
+            };
+
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+
+            string sourceRepositoryPath = Path.Combine(_rootPath, "source-repository");
+            CreateRepository(sourceRepositoryPath, new List<string>(), string.Empty);
+
+            CloneRepositoryResult cloneResult = service.CloneRepository(sourceRepositoryPath);
+
+            Assert.True(cloneResult.Succeeded);
+            Assert.False(cloneResult.AlreadyExists);
+            string clonedRepositoryPath = Path.Combine(cloneRoot, "source-repository");
+            Assert.True(Directory.Exists(clonedRepositoryPath));
+
+            IReadOnlyCollection<LocalRepository> repositories = service.GetRepositories();
+            Assert.Single(repositories);
+            LocalRepository repository = repositories.Single();
+            Assert.Equal("source-repository", repository.Name);
         }
 
         [Fact]

@@ -48,9 +48,24 @@ namespace MyApp.Controllers
                 return View("Index", invalidViewModel);
             }
 
+            CloneRepositoryResult cloneResult = _repositoryService.CloneRepository(request.RepositoryUrl);
+
+            if (!cloneResult.Succeeded)
+            {
+                string fieldKey = string.Format("{0}.{1}", nameof(HomeIndexViewModel.AddRepository), nameof(AddRepositoryRequest.RepositoryUrl));
+                string errorMessage = string.IsNullOrWhiteSpace(cloneResult.Message) ? "Failed to clone repository." : cloneResult.Message;
+                ModelState.AddModelError(fieldKey, errorMessage);
+                IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
+                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request);
+                return View("Index", invalidViewModel);
+            }
+
             if (TempData != null)
             {
-                TempData["RepositoryAdded"] = request.RepositoryUrl;
+                string notification = cloneResult.AlreadyExists
+                    ? string.Format("Repository already cloned: {0}", request.RepositoryUrl)
+                    : request.RepositoryUrl;
+                TempData["RepositoryAdded"] = notification;
             }
             return RedirectToAction(nameof(Index));
         }
