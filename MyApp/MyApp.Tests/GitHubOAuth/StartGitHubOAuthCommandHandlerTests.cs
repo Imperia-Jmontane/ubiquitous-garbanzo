@@ -66,5 +66,46 @@ namespace MyApp.Tests.GitHubOAuth
             Assert.True(result.CanClone);
             Assert.True(result.ExpiresAt > now);
         }
+
+        [Fact]
+        public async Task Handle_ShouldReturnCanCloneFalse_WhenMandatoryScopesMissing()
+        {
+            Mock<IGitHubOAuthStateRepository> stateRepositoryMock = new Mock<IGitHubOAuthStateRepository>();
+            Mock<ISystemClock> clockMock = new Mock<ISystemClock>();
+            Mock<IValidator<StartGitHubOAuthCommand>> validatorMock = new Mock<IValidator<StartGitHubOAuthCommand>>();
+            Mock<ILogger<StartGitHubOAuthCommandHandler>> loggerMock = new Mock<ILogger<StartGitHubOAuthCommandHandler>>();
+
+            GitHubOAuthOptions options = new GitHubOAuthOptions
+            {
+                ClientId = "client-id",
+                AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
+                TokenEndpoint = "https://github.com/login/oauth/access_token",
+                Scopes = { "notifications" }
+            };
+            IOptions<GitHubOAuthOptions> optionsWrapper = Options.Create(options);
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            clockMock.SetupGet(clock => clock.UtcNow).Returns(now);
+            validatorMock.Setup(validator => validator.ValidateAsync(It.IsAny<StartGitHubOAuthCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ValidationResult());
+            stateRepositoryMock.Setup(repository => repository.RemoveExpiredAsync(It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            stateRepositoryMock.Setup(repository => repository.AddAsync(It.IsAny<GitHubOAuthState>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            StartGitHubOAuthCommandHandler handler = new StartGitHubOAuthCommandHandler(
+                stateRepositoryMock.Object,
+                clockMock.Object,
+                validatorMock.Object,
+                loggerMock.Object,
+                optionsWrapper);
+
+            StartGitHubOAuthCommand command = new StartGitHubOAuthCommand(Guid.NewGuid(), "https://localhost/signin-github");
+
+            StartGitHubOAuthResultDto result = await handler.Handle(command, CancellationToken.None);
+
+            Assert.False(result.CanClone);
+            Assert.Contains("notifications", result.Scopes);
+        }
     }
 }

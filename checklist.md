@@ -126,8 +126,8 @@
 
 ## 8) Observabilidad y DX
 
-- [ ] Logging estructurado (correlación por `jobId` y `commit`).
-- [ ] Métricas clave: duración ingesta, tiempo de generación Codex, tamaño del gráfico, errores por tipo.
+- [x] Logging estructurado (correlación por `jobId` y `commit`).
+- [x] Métricas clave: duración ingesta, tiempo de generación Codex, tamaño del gráfico, errores por tipo.
 - [ ] Página interna de salud/cola y últimos jobs (estado y tiempos).
 
 

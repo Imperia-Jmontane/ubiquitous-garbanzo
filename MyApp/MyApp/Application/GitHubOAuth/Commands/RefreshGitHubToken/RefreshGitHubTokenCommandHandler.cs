@@ -52,7 +52,6 @@ namespace MyApp.Application.GitHubOAuth.Commands.RefreshGitHubToken
                 UserExternalLogin? existing = await userExternalLoginRepository.GetAsync(request.UserId, ProviderName, cancellationToken);
                 if (existing == null)
                 {
-                    refreshFailureCounter.Add(1);
                     throw new InvalidOperationException("No GitHub connection is registered for the user.");
                 }
 

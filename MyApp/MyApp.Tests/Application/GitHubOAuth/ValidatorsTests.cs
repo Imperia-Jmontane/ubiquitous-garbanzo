@@ -3,6 +3,7 @@ using FluentAssertions;
 using FluentValidation.Results;
 using MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount;
 using MyApp.Application.GitHubOAuth.Commands.RefreshGitHubToken;
+using MyApp.Application.GitHubOAuth.Commands.StartGitHubOAuth;
 using Xunit;
 
 namespace MyApp.Tests.Application.GitHubOAuth
@@ -28,6 +29,26 @@ namespace MyApp.Tests.Application.GitHubOAuth
 
             ValidationResult result = validator.Validate(command);
             result.IsValid.Should().BeFalse();
+        }
+
+        [Fact]
+        public void StartGitHubOAuthCommandValidator_ShouldFailForRelativeRedirect()
+        {
+            StartGitHubOAuthCommandValidator validator = new StartGitHubOAuthCommandValidator();
+            StartGitHubOAuthCommand command = new StartGitHubOAuthCommand(Guid.NewGuid(), "/callback");
+
+            ValidationResult result = validator.Validate(command);
+            result.IsValid.Should().BeFalse();
+        }
+
+        [Fact]
+        public void StartGitHubOAuthCommandValidator_ShouldSucceedForValidInput()
+        {
+            StartGitHubOAuthCommandValidator validator = new StartGitHubOAuthCommandValidator();
+            StartGitHubOAuthCommand command = new StartGitHubOAuthCommand(Guid.NewGuid(), "https://example.com/callback");
+
+            ValidationResult result = validator.Validate(command);
+            result.IsValid.Should().BeTrue();
         }
     }
 }
