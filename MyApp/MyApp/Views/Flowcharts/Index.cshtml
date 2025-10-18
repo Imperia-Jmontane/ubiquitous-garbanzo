@@ -1,38 +1,274 @@
 @using System.Collections.Generic
+@using System.Text.Encodings.Web
+@using System.Text.Json
+
+@functions {
+    public class FlowchartMetric
+    {
+        public string Label { get; set; } = string.Empty;
+
+        public string Value { get; set; } = string.Empty;
+    }
+
+    public class FlowchartHighlight
+    {
+        public string Title { get; set; } = string.Empty;
+
+        public string Description { get; set; } = string.Empty;
+    }
+
+    public class FlowchartTabData
+    {
+        public string Id { get; set; } = string.Empty;
+
+        public string Title { get; set; } = string.Empty;
+
+        public string Summary { get; set; } = string.Empty;
+
+        public string Owner { get; set; } = string.Empty;
+
+        public string OwnerRole { get; set; } = string.Empty;
+
+        public string Updated { get; set; } = string.Empty;
+
+        public string Status { get; set; } = string.Empty;
+
+        public string CurrentLevel { get; set; } = string.Empty;
+
+        public List<string> Levels { get; set; } = new List<string>();
+
+        public List<FlowchartMetric> Metrics { get; set; } = new List<FlowchartMetric>();
+
+        public List<FlowchartHighlight> Highlights { get; set; } = new List<FlowchartHighlight>();
+
+        public List<string> Tags { get; set; } = new List<string>();
+
+        public string CanvasDescription { get; set; } = string.Empty;
+    }
+}
+
 @{
     ViewData["Title"] = "Flowcharts";
+
+    List<FlowchartTabData> openFlowcharts = new List<FlowchartTabData>
+    {
+        new FlowchartTabData
+        {
+            Id = "flowchart-checkout",
+            Title = "Checkout principal",
+            Summary = "Flujo central para completar compras con validaciones antifraude y comunicación con ERP.",
+            Owner = "Sofía Rivera",
+            OwnerRole = "Lead Product Manager",
+            Updated = "Actualizado hace 12 minutos",
+            Status = "En producción",
+            CurrentLevel = "L2",
+            Levels = new List<string> { "L1", "L2", "L3" },
+            CanvasDescription = "El canvas muestra la orquestación de pagos y la resolución de incidencias.",
+            Metrics = new List<FlowchartMetric>
+            {
+                new FlowchartMetric { Label = "Nodos", Value = "28" },
+                new FlowchartMetric { Label = "Automatizaciones", Value = "6" },
+                new FlowchartMetric { Label = "Integraciones", Value = "4" }
+            },
+            Highlights = new List<FlowchartHighlight>
+            {
+                new FlowchartHighlight { Title = "Validación antifraude", Description = "Se ejecuta en paralelo con el scoring de riesgo y bloquea órdenes sospechosas." },
+                new FlowchartHighlight { Title = "Webhook ERP", Description = "Sincroniza estados de pedido y activa la actualización de inventario." },
+                new FlowchartHighlight { Title = "Rutas de fallback", Description = "En caso de timeout se recurre a la pasarela secundaria en menos de 3s." }
+            },
+            Tags = new List<string> { "Checkout", "Pagos", "Producción" }
+        },
+        new FlowchartTabData
+        {
+            Id = "flowchart-retencion",
+            Title = "Retención post-compra",
+            Summary = "Secuencia de comunicaciones tras la entrega para mejorar el NPS y activar referidos.",
+            Owner = "Diego Morales",
+            OwnerRole = "Customer Success Lead",
+            Updated = "Actualizado ayer",
+            Status = "Piloto",
+            CurrentLevel = "L1",
+            Levels = new List<string> { "L1", "L2", "L3" },
+            CanvasDescription = "Incluye automatizaciones de encuestas, recordatorios y detección temprana de churn.",
+            Metrics = new List<FlowchartMetric>
+            {
+                new FlowchartMetric { Label = "Nodos", Value = "18" },
+                new FlowchartMetric { Label = "Segmentos", Value = "5" },
+                new FlowchartMetric { Label = "Tareas", Value = "11" }
+            },
+            Highlights = new List<FlowchartHighlight>
+            {
+                new FlowchartHighlight { Title = "Encuesta NPS", Description = "Se envía 24h después de la entrega y ajusta la cadencia de seguimiento." },
+                new FlowchartHighlight { Title = "Alertas de churn", Description = "Los usuarios con malas reseñas crean tickets automáticos en Zendesk." },
+                new FlowchartHighlight { Title = "Programa de referidos", Description = "Automatiza el envío de códigos de invitación según la satisfacción." }
+            },
+            Tags = new List<string> { "Retención", "CX", "Beta" }
+        },
+        new FlowchartTabData
+        {
+            Id = "flowchart-onboarding-b2b",
+            Title = "Onboarding B2B",
+            Summary = "Orquesta tareas legales, entrenamiento y provisionamiento de cuentas para nuevos clientes.",
+            Owner = "Laura Pérez",
+            OwnerRole = "Implementation Specialist",
+            Updated = "Actualizado hace 3 días",
+            Status = "Escalamiento",
+            CurrentLevel = "L3",
+            Levels = new List<string> { "L1", "L2", "L3" },
+            CanvasDescription = "Coordina equipos internos, envía material personalizado y rastrea sign-offs de contratos.",
+            Metrics = new List<FlowchartMetric>
+            {
+                new FlowchartMetric { Label = "Nodos", Value = "34" },
+                new FlowchartMetric { Label = "Equipos", Value = "7" },
+                new FlowchartMetric { Label = "SLA", Value = "72h" }
+            },
+            Highlights = new List<FlowchartHighlight>
+            {
+                new FlowchartHighlight { Title = "Checklist legal", Description = "Controla envíos de NDA y contratos marco por cliente." },
+                new FlowchartHighlight { Title = "Capacitaciones", Description = "Genera sesiones automáticas por rol y región." },
+                new FlowchartHighlight { Title = "Alertas de SLA", Description = "Notifica retrasos en tareas críticas y crea escalaciones." }
+            },
+            Tags = new List<string> { "Onboarding", "B2B", "Automatización" }
+        }
+    };
+
     List<(string Title, string Description, string Updated)> recentFlowcharts = new List<(string Title, string Description, string Updated)>
     {
         ("Onboarding de clientes", "Define la serie de pasos automatizados para dar la bienvenida a los nuevos clientes.", "Actualizado hace 2 horas"),
         ("Embudo de ventas B2B", "Sincroniza reuniones, recordatorios y tareas de seguimiento para tu equipo comercial.", "Actualizado ayer"),
         ("Experiencia post-compra", "Coordina mensajes y encuestas de satisfacción después de cada entrega.", "Actualizado hace 3 días")
     };
+
+    JsonSerializerOptions jsonOptions = new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    string flowchartsJson = JsonSerializer.Serialize(openFlowcharts, jsonOptions);
 }
-<section class="space-y-8 text-gray-100">
+
+<section class="space-y-8 text-gray-100" data-flowchart-tabs-root data-flowcharts='@Html.Raw(flowchartsJson)'>
     <header class="flex flex-col gap-4 rounded-2xl border border-white/10 bg-gray-900/70 p-6 shadow-inner shadow-black/20 lg:flex-row lg:items-center lg:justify-between">
         <div>
             <h1 class="text-2xl font-semibold text-white">Flowcharts</h1>
-            <p class="mt-1 text-sm text-gray-400">Organiza tus automatizaciones visuales, colabora con tu equipo y publica nuevos flujos en minutos.</p>
+            <p class="mt-1 text-sm text-gray-400">Mantén abiertos los flujos más relevantes, cambia de vista por nivel y publícalos cuando estén listos.</p>
         </div>
-        <a asp-area="" asp-controller="Flowcharts" asp-action="Create" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
-                <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            Crear flowchart
-        </a>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-gray-300 lg:inline-flex">
+                <span class="flex items-center gap-1">
+                    <kbd class="rounded bg-gray-800 px-1.5 py-0.5 text-[0.65rem] font-semibold text-gray-200">Alt</kbd>
+                </span>
+                <span>+</span>
+                <kbd class="rounded bg-gray-800 px-1.5 py-0.5 text-[0.65rem] font-semibold text-gray-200">T</kbd>
+                <span class="text-gray-400">Siguiente tab</span>
+                <span class="text-gray-600">|</span>
+                <span class="flex items-center gap-1">
+                    <kbd class="rounded bg-gray-800 px-1.5 py-0.5 text-[0.65rem] font-semibold text-gray-200">Alt</kbd>
+                </span>
+                <span>+</span>
+                <kbd class="rounded bg-gray-800 px-1.5 py-0.5 text-[0.65rem] font-semibold text-gray-200">Shift</kbd>
+                <span>+</span>
+                <kbd class="rounded bg-gray-800 px-1.5 py-0.5 text-[0.65rem] font-semibold text-gray-200">T</kbd>
+                <span class="text-gray-400">Tab anterior</span>
+            </div>
+            <a asp-area="" asp-controller="Flowcharts" asp-action="Create" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" class="size-5">
+                    <path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Crear flowchart
+            </a>
+        </div>
     </header>
-    <div class="rounded-2xl border border-white/10 bg-gray-900/60">
-        <nav class="flex gap-2 border-b border-white/10 px-4 py-3" aria-label="Categorías de flowcharts">
-            <button type="button" class="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40 shadow-inner shadow-indigo-950/40">Recientes</button>
-            <button type="button" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-white/5">Favoritos</button>
-            <button type="button" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-white/5">Plantillas</button>
-        </nav>
-        <div class="grid gap-4 px-4 py-5 sm:grid-cols-2 xl:grid-cols-3">
+    <nav aria-label="Flowcharts abiertos" class="rounded-2xl border border-white/10 bg-gray-900/50 p-2">
+        <ul role="tablist" data-flowchart-tablist class="flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl bg-white/5 p-1 text-sm font-semibold text-gray-400">
+        </ul>
+    </nav>
+    <div class="rounded-3xl border border-white/10 bg-gray-900/60 p-6 shadow-inner shadow-black/30" data-flowchart-canvas>
+        <div data-flowchart-main class="flex flex-col gap-6">
+            <div class="flex flex-col gap-6 rounded-2xl border border-white/10 bg-gray-900/50 p-6 shadow-inner shadow-black/40 lg:flex-row lg:items-start lg:justify-between">
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-3 text-xs font-semibold">
+                        <span data-flowchart-status class="inline-flex items-center gap-2 rounded-full bg-indigo-500/10 px-3 py-1 text-indigo-200">
+                            <span class="size-2 rounded-full bg-indigo-300" aria-hidden="true"></span>
+                            <span data-flowchart-status-label>En producción</span>
+                        </span>
+                        <span data-flowchart-level-badge class="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-gray-200">
+                            Nivel actual: L1
+                        </span>
+                    </div>
+                    <div class="space-y-2">
+                        <h2 data-flowchart-title class="text-2xl font-semibold text-white">Flowchart</h2>
+                        <p data-flowchart-summary class="text-sm text-gray-400">
+                            Selecciona un tab para ver su resumen y contexto.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 text-xs text-gray-400" data-flowchart-tags>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 rounded-2xl border border-white/10 bg-gray-900/70 p-4 text-sm text-gray-300">
+                    <div class="flex flex-col">
+                        <span class="text-xs uppercase tracking-wide text-gray-500">Owner</span>
+                        <span data-flowchart-owner class="text-sm font-semibold text-white">Sofía Rivera</span>
+                        <span data-flowchart-role class="text-xs text-gray-400">Lead Product Manager</span>
+                    </div>
+                    <div class="h-10 w-px bg-white/10"></div>
+                    <div class="flex flex-col">
+                        <span class="text-xs uppercase tracking-wide text-gray-500">Actualización</span>
+                        <span data-flowchart-updated class="text-sm text-gray-200">Actualizado hace 12 minutos</span>
+                    </div>
+                </div>
+            </div>
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
+                <section class="relative overflow-hidden rounded-2xl border border-white/10 bg-gray-900/80 p-6 shadow-inner shadow-black/40">
+                    <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,#312e81_0%,rgba(15,23,42,0)_65%)] opacity-60"></div>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-white">Vista previa del canvas</h3>
+                        <span data-flowchart-canvas-level class="rounded-full bg-black/40 px-2 py-1 text-xs font-medium text-indigo-200">Nivel L1</span>
+                    </div>
+                    <p data-flowchart-canvas-description class="mt-4 text-sm text-gray-300">
+                        Elige un flowchart para ver su canvas detallado.
+                    </p>
+                    <dl data-flowchart-metrics class="mt-6 grid gap-4 sm:grid-cols-3">
+                    </dl>
+                </section>
+                <aside class="flex flex-col gap-6 rounded-2xl border border-white/10 bg-gray-900/60 p-6">
+                    <div>
+                        <h3 class="text-sm font-semibold text-white">Notas clave</h3>
+                        <ul data-flowchart-highlights class="mt-3 space-y-3 text-sm text-gray-300">
+                        </ul>
+                    </div>
+                    <div class="rounded-xl border border-dashed border-white/10 bg-black/30 p-4 text-xs text-gray-400">
+                        Cambia de nivel con el selector inferior para ajustar el detalle sin salir del canvas.
+                    </div>
+                </aside>
+            </div>
+        </div>
+        <div data-flowchart-empty-state class="hidden rounded-2xl border border-dashed border-white/15 bg-gray-900/40 p-6 text-center text-sm text-gray-400">
+            No hay flowcharts abiertos. Abre un flujo desde la biblioteca para comenzar.
+        </div>
+    </div>
+    <section class="rounded-2xl border border-white/10 bg-gray-900/50 p-6 shadow-inner shadow-black/20">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-white">Biblioteca de flowcharts</h2>
+                <p class="text-sm text-gray-400">Explora otros flujos recientes y ábrelos en nuevas tabs cuando los necesites.</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                    Ver favoritos
+                </button>
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                    Buscar plantillas
+                </button>
+            </div>
+        </div>
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             @foreach ((string Title, string Description, string Updated) flowchart in recentFlowcharts)
             {
-                <article class="flex h-full flex-col justify-between rounded-xl border border-white/10 bg-gray-900/80 p-5 shadow-inner shadow-black/20 transition hover:border-indigo-400/60 hover:shadow-xl hover:shadow-indigo-950/40 focus-within:border-indigo-400/60">
+                <article class="flex h-full flex-col justify-between rounded-xl border border-white/10 bg-gray-900/80 p-5 shadow-inner shadow-black/20 transition hover:border-indigo-400/60 hover:shadow-xl hover:shadow-indigo-950/40">
                     <div>
-                        <h2 class="text-lg font-semibold text-white">@flowchart.Title</h2>
+                        <h3 class="text-lg font-semibold text-white">@flowchart.Title</h3>
                         <p class="mt-2 text-sm text-gray-400">@flowchart.Description</p>
                     </div>
                     <div class="mt-6 flex items-center justify-between text-xs text-gray-400">
@@ -45,8 +281,5 @@
                 </article>
             }
         </div>
-    </div>
-    <div class="rounded-2xl border border-dashed border-white/15 bg-gray-900/40 p-6 text-center text-sm text-gray-400">
-        ¿Buscas algo específico? Usa la barra de búsqueda para filtrar tus flowcharts por nombre, etiquetas o equipo.
-    </div>
+    </section>
 </section>

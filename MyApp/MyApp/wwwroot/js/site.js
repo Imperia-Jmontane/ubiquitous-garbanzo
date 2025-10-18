@@ -6,7 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeResizableSidebar();
     initializeCodexDrawer();
     initializeLevelSwitcher();
+    initializeFlowchartTabs();
 });
+
+let activeFlowchartTabManager = null;
+let flowchartTabHotkeysBound = false;
+let flowchartLevelChangeBound = false;
 
 const initializeProfileMenu = () => {
     const menuContainers = document.querySelectorAll("[data-profile-menu-container]");
@@ -617,33 +622,6 @@ const initializeLevelSwitcher = () => {
             }
         };
 
-        const setCurrentLevel = (level) => {
-            if (levels.includes(level) === false) {
-                return;
-            }
-
-            currentLevel = level;
-            currentIndex = levels.indexOf(currentLevel);
-            switcher.setAttribute("data-current-level", currentLevel);
-            render();
-        };
-
-        const goToPrevious = () => {
-            if (currentIndex <= 0) {
-                return;
-            }
-
-            setCurrentLevel(levels[currentIndex - 1]);
-        };
-
-        const goToNext = () => {
-            if (currentIndex >= levels.length - 1) {
-                return;
-            }
-
-            setCurrentLevel(levels[currentIndex + 1]);
-        };
-
         const createLevelButton = (level, isActive) => {
             const button = document.createElement("button");
 
@@ -796,6 +774,41 @@ const initializeLevelSwitcher = () => {
             applyDisabledState(mobileNext, currentIndex === levels.length - 1);
         };
 
+        const notifyLevelChange = () => {
+            const eventDetail = { level: currentLevel };
+            const levelChangeEvent = new CustomEvent("levelchange", { detail: eventDetail });
+
+            switcher.dispatchEvent(levelChangeEvent);
+        };
+
+        const setCurrentLevel = (level) => {
+            if (levels.includes(level) === false || level === currentLevel) {
+                return;
+            }
+
+            currentLevel = level;
+            currentIndex = levels.indexOf(currentLevel);
+            switcher.setAttribute("data-current-level", currentLevel);
+            render();
+            notifyLevelChange();
+        };
+
+        const goToPrevious = () => {
+            if (currentIndex <= 0) {
+                return;
+            }
+
+            setCurrentLevel(levels[currentIndex - 1]);
+        };
+
+        const goToNext = () => {
+            if (currentIndex >= levels.length - 1) {
+                return;
+            }
+
+            setCurrentLevel(levels[currentIndex + 1]);
+        };
+
         previousButton.addEventListener("click", (event) => {
             event.preventDefault();
             goToPrevious();
@@ -820,6 +833,760 @@ const initializeLevelSwitcher = () => {
             });
         }
 
+        switcher.levelSwitcherController = {
+            getCurrentLevel: () => currentLevel,
+            getLevels: () => levels.slice(),
+            setLevel: (level) => {
+                setCurrentLevel(level);
+            },
+            goToPrevious: () => {
+                goToPrevious();
+            },
+            goToNext: () => {
+                goToNext();
+            }
+        };
+
         render();
+        notifyLevelChange();
+    });
+};
+
+const setActiveFlowchartTabManager = (manager) => {
+    if (activeFlowchartTabManager === manager) {
+        return;
+    }
+
+    activeFlowchartTabManager = manager;
+};
+
+const bindFlowchartTabHotkeys = () => {
+    if (flowchartTabHotkeysBound === true) {
+        return;
+    }
+
+    flowchartTabHotkeysBound = true;
+
+    document.addEventListener("keydown", (event) => {
+        const key = typeof event.key === "string" ? event.key.toLowerCase() : "";
+        const usesAltModifier = event.altKey === true;
+        const usesOtherModifiers = event.ctrlKey === true || event.metaKey === true;
+
+        if (key !== "t" || usesAltModifier === false || usesOtherModifiers === true) {
+            return;
+        }
+
+        if (activeFlowchartTabManager === null) {
+            return;
+        }
+
+        event.preventDefault();
+
+        if (event.shiftKey === true) {
+            activeFlowchartTabManager.activatePrevious();
+        }
+        else {
+            activeFlowchartTabManager.activateNext();
+        }
+    });
+};
+
+const bindFlowchartLevelChange = (switcherElement) => {
+    if (switcherElement === null || flowchartLevelChangeBound === true) {
+        return;
+    }
+
+    flowchartLevelChangeBound = true;
+
+    switcherElement.addEventListener("levelchange", (event) => {
+        if (activeFlowchartTabManager === null) {
+            return;
+        }
+
+        const detail = event.detail;
+
+        if (detail === null || typeof detail.level !== "string") {
+            return;
+        }
+
+        activeFlowchartTabManager.updateActiveLevel(detail.level);
+    });
+};
+
+const initializeFlowchartTabs = () => {
+    const workspaceElements = Array.from(document.querySelectorAll("[data-flowchart-tabs-root]"));
+
+    if (workspaceElements.length === 0) {
+        return;
+    }
+
+    const levelSwitcherElement = document.querySelector("[data-level-switcher]");
+
+    bindFlowchartTabHotkeys();
+    bindFlowchartLevelChange(levelSwitcherElement);
+
+    workspaceElements.forEach((workspace, workspaceIndex) => {
+        const tablist = workspace.querySelector("[data-flowchart-tablist]");
+        const mainSection = workspace.querySelector("[data-flowchart-main]");
+        const emptyState = workspace.querySelector("[data-flowchart-empty-state]");
+        const statusContainer = workspace.querySelector("[data-flowchart-status]");
+        const statusLabel = statusContainer !== null ? statusContainer.querySelector("[data-flowchart-status-label]") : null;
+        const levelBadge = workspace.querySelector("[data-flowchart-level-badge]");
+        const titleElement = workspace.querySelector("[data-flowchart-title]");
+        const summaryElement = workspace.querySelector("[data-flowchart-summary]");
+        const tagsContainer = workspace.querySelector("[data-flowchart-tags]");
+        const ownerElement = workspace.querySelector("[data-flowchart-owner]");
+        const roleElement = workspace.querySelector("[data-flowchart-role]");
+        const updatedElement = workspace.querySelector("[data-flowchart-updated]");
+        const canvasLevelElement = workspace.querySelector("[data-flowchart-canvas-level]");
+        const canvasDescriptionElement = workspace.querySelector("[data-flowchart-canvas-description]");
+        const metricsContainer = workspace.querySelector("[data-flowchart-metrics]");
+        const highlightsContainer = workspace.querySelector("[data-flowchart-highlights]");
+
+        if (tablist === null) {
+            return;
+        }
+
+        const rawFlowcharts = workspace.getAttribute("data-flowcharts");
+        let parsedFlowcharts = [];
+
+        if (typeof rawFlowcharts === "string" && rawFlowcharts.trim().length > 0) {
+            try {
+                const parsedJson = JSON.parse(rawFlowcharts);
+
+                if (Array.isArray(parsedJson) === true) {
+                    parsedFlowcharts = parsedJson;
+                }
+            }
+            catch (error) {
+                // Ignored intentionally when the JSON cannot be parsed.
+            }
+        }
+
+        const toNonEmptyString = (value) => {
+            if (typeof value === "string") {
+                const trimmedValue = value.trim();
+
+                if (trimmedValue.length > 0) {
+                    return trimmedValue;
+                }
+
+                return null;
+            }
+
+            if (typeof value === "number" && Number.isFinite(value) === true) {
+                return value.toString();
+            }
+
+            return null;
+        };
+
+        const sanitizeFlowcharts = () => {
+            const sanitized = [];
+
+            parsedFlowcharts.forEach((item, index) => {
+                if (item === null || typeof item !== "object") {
+                    return;
+                }
+
+                let identifier = toNonEmptyString(item.id);
+
+                if (identifier === null) {
+                    identifier = "flowchart-" + (index + 1).toString();
+                }
+
+                let titleValue = toNonEmptyString(item.title);
+
+                if (titleValue === null) {
+                    titleValue = "Flowchart " + (index + 1).toString();
+                }
+
+                let summaryValue = toNonEmptyString(item.summary);
+
+                if (summaryValue === null) {
+                    summaryValue = "";
+                }
+
+                let ownerValue = toNonEmptyString(item.owner);
+
+                if (ownerValue === null) {
+                    ownerValue = "";
+                }
+
+                let ownerRoleValue = toNonEmptyString(item.ownerRole);
+
+                if (ownerRoleValue === null) {
+                    ownerRoleValue = "";
+                }
+
+                let updatedValue = toNonEmptyString(item.updated);
+
+                if (updatedValue === null) {
+                    updatedValue = "";
+                }
+
+                let statusValue = toNonEmptyString(item.status);
+
+                if (statusValue === null) {
+                    statusValue = "Sin estado";
+                }
+
+                let canvasDescriptionValue = toNonEmptyString(item.canvasDescription);
+
+                if (canvasDescriptionValue === null) {
+                    canvasDescriptionValue = "";
+                }
+
+                let levels = Array.isArray(item.levels) === true ? item.levels : [];
+
+                levels = levels
+                    .map((level) => toNonEmptyString(level))
+                    .filter((level) => level !== null);
+
+                if (levels.length === 0) {
+                    levels = ["L1", "L2", "L3"];
+                }
+
+                const uniqueLevels = Array.from(new Set(levels));
+                let currentLevelValue = toNonEmptyString(item.currentLevel);
+
+                if (currentLevelValue === null || uniqueLevels.includes(currentLevelValue) === false) {
+                    currentLevelValue = uniqueLevels[0];
+                }
+
+                const metricsSource = Array.isArray(item.metrics) === true ? item.metrics : [];
+                const metrics = metricsSource
+                    .map((metric) => {
+                        if (metric === null || typeof metric !== "object") {
+                            return null;
+                        }
+
+                        const labelValue = toNonEmptyString(metric.label);
+                        const metricValue = toNonEmptyString(metric.value);
+
+                        if (labelValue === null || metricValue === null) {
+                            return null;
+                        }
+
+                        return { label: labelValue, value: metricValue };
+                    })
+                    .filter((metric) => metric !== null);
+
+                const highlightsSource = Array.isArray(item.highlights) === true ? item.highlights : [];
+                const highlights = highlightsSource
+                    .map((highlight) => {
+                        if (highlight === null || typeof highlight !== "object") {
+                            return null;
+                        }
+
+                        let highlightTitle = toNonEmptyString(highlight.title);
+
+                        if (highlightTitle === null) {
+                            highlightTitle = "Detalle clave";
+                        }
+
+                        let highlightDescription = toNonEmptyString(highlight.description);
+
+                        if (highlightDescription === null) {
+                            highlightDescription = "";
+                        }
+
+                        return { title: highlightTitle, description: highlightDescription };
+                    })
+                    .filter((highlight) => highlight !== null);
+
+                const tagsSource = Array.isArray(item.tags) === true ? item.tags : [];
+                const tags = tagsSource
+                    .map((tag) => toNonEmptyString(tag))
+                    .filter((tag) => tag !== null);
+
+                sanitized.push({
+                    id: identifier,
+                    title: titleValue,
+                    summary: summaryValue,
+                    owner: ownerValue,
+                    ownerRole: ownerRoleValue,
+                    updated: updatedValue,
+                    status: statusValue,
+                    currentLevel: currentLevelValue,
+                    levels: uniqueLevels,
+                    canvasDescription: canvasDescriptionValue,
+                    metrics,
+                    highlights,
+                    tags
+                });
+            });
+
+            return sanitized;
+        };
+
+        const flowcharts = sanitizeFlowcharts();
+
+        const state = {
+            flowcharts,
+            activeId: flowcharts.length > 0 ? flowcharts[0].id : null
+        };
+
+        const levelController = levelSwitcherElement !== null ? levelSwitcherElement.levelSwitcherController : null;
+        let manager = null;
+
+        const setCanvasVisibility = (isEmpty) => {
+            if (mainSection !== null) {
+                if (isEmpty === true) {
+                    mainSection.classList.add("hidden");
+                }
+                else {
+                    mainSection.classList.remove("hidden");
+                }
+            }
+
+            if (emptyState !== null) {
+                if (isEmpty === true) {
+                    emptyState.classList.remove("hidden");
+                }
+                else {
+                    emptyState.classList.add("hidden");
+                }
+            }
+        };
+
+        const renderTags = (tags) => {
+            if (tagsContainer === null) {
+                return;
+            }
+
+            tagsContainer.innerHTML = "";
+
+            if (tags.length === 0) {
+                const placeholder = document.createElement("span");
+                placeholder.classList.add("inline-flex", "items-center", "rounded-full", "border", "border-dashed", "border-white/20", "px-3", "py-1", "text-xs", "text-gray-500");
+                placeholder.textContent = "Sin etiquetas asignadas";
+
+                tagsContainer.appendChild(placeholder);
+                return;
+            }
+
+            tags.forEach((tag) => {
+                if (tag === null) {
+                    return;
+                }
+
+                const badge = document.createElement("span");
+                badge.classList.add("inline-flex", "items-center", "rounded-full", "bg-indigo-500/10", "px-3", "py-1", "text-xs", "font-medium", "text-indigo-200");
+                badge.textContent = tag;
+
+                tagsContainer.appendChild(badge);
+            });
+        };
+
+        const renderMetrics = (metrics) => {
+            if (metricsContainer === null) {
+                return;
+            }
+
+            metricsContainer.innerHTML = "";
+
+            if (metrics.length === 0) {
+                const emptyMetric = document.createElement("div");
+                emptyMetric.classList.add("sm:col-span-3", "rounded-xl", "border", "border-dashed", "border-white/10", "bg-transparent", "p-4", "text-sm", "text-gray-400");
+                emptyMetric.textContent = "Sin métricas registradas para este nivel.";
+
+                metricsContainer.appendChild(emptyMetric);
+                return;
+            }
+
+            metrics.forEach((metric) => {
+                if (metric === null) {
+                    return;
+                }
+
+                const card = document.createElement("div");
+                card.classList.add("rounded-xl", "border", "border-white/10", "bg-white/5", "px-4", "py-4", "shadow-inner", "shadow-black/20");
+
+                const term = document.createElement("dt");
+                term.classList.add("text-xs", "font-semibold", "uppercase", "tracking-wide", "text-indigo-300");
+                term.textContent = metric.label;
+
+                const value = document.createElement("dd");
+                value.classList.add("mt-2", "text-2xl", "font-semibold", "text-white");
+                value.textContent = metric.value;
+
+                card.appendChild(term);
+                card.appendChild(value);
+                metricsContainer.appendChild(card);
+            });
+        };
+
+        const renderHighlights = (highlights) => {
+            if (highlightsContainer === null) {
+                return;
+            }
+
+            highlightsContainer.innerHTML = "";
+
+            if (highlights.length === 0) {
+                const placeholderItem = document.createElement("li");
+                placeholderItem.classList.add("rounded-xl", "border", "border-dashed", "border-white/10", "bg-transparent", "p-4", "text-sm", "text-gray-400");
+                placeholderItem.textContent = "Sin notas registradas para este flowchart.";
+
+                highlightsContainer.appendChild(placeholderItem);
+                return;
+            }
+
+            highlights.forEach((highlight) => {
+                if (highlight === null) {
+                    return;
+                }
+
+                const item = document.createElement("li");
+                item.classList.add("rounded-xl", "border", "border-white/10", "bg-white/5", "p-4", "shadow-inner", "shadow-black/20");
+
+                const highlightTitleElement = document.createElement("p");
+                highlightTitleElement.classList.add("text-sm", "font-semibold", "text-white");
+                highlightTitleElement.textContent = highlight.title;
+
+                const highlightDescriptionElement = document.createElement("p");
+                highlightDescriptionElement.classList.add("mt-1", "text-sm", "text-gray-300");
+                highlightDescriptionElement.textContent = highlight.description;
+
+                item.appendChild(highlightTitleElement);
+                item.appendChild(highlightDescriptionElement);
+                highlightsContainer.appendChild(item);
+            });
+        };
+
+        const updateLevelIndicators = (flowchart) => {
+            if (levelBadge !== null) {
+                levelBadge.textContent = "Nivel actual: " + flowchart.currentLevel;
+            }
+
+            if (canvasLevelElement !== null) {
+                canvasLevelElement.textContent = "Nivel " + flowchart.currentLevel;
+            }
+        };
+
+        const updateCanvas = (flowchart) => {
+            if (flowchart === null) {
+                setCanvasVisibility(true);
+
+                if (workspace.hasAttribute("data-active-flowchart") === true) {
+                    workspace.removeAttribute("data-active-flowchart");
+                }
+
+                return;
+            }
+
+            setCanvasVisibility(false);
+            workspace.setAttribute("data-active-flowchart", flowchart.id);
+
+            if (statusLabel !== null) {
+                statusLabel.textContent = flowchart.status;
+            }
+
+            if (titleElement !== null) {
+                titleElement.textContent = flowchart.title;
+            }
+
+            if (summaryElement !== null) {
+                summaryElement.textContent = flowchart.summary;
+            }
+
+            renderTags(flowchart.tags);
+
+            if (ownerElement !== null) {
+                ownerElement.textContent = flowchart.owner;
+            }
+
+            if (roleElement !== null) {
+                roleElement.textContent = flowchart.ownerRole;
+            }
+
+            if (updatedElement !== null) {
+                updatedElement.textContent = flowchart.updated;
+            }
+
+            if (canvasDescriptionElement !== null) {
+                canvasDescriptionElement.textContent = flowchart.canvasDescription;
+            }
+
+            updateLevelIndicators(flowchart);
+            renderMetrics(flowchart.metrics);
+            renderHighlights(flowchart.highlights);
+        };
+
+        const focusActiveTab = () => {
+            if (tablist === null) {
+                return;
+            }
+
+            const activeButton = tablist.querySelector("[data-flowchart-tab][aria-selected='true']");
+
+            if (activeButton instanceof HTMLElement) {
+                activeButton.focus();
+
+                if (typeof activeButton.scrollIntoView === "function") {
+                    activeButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+                }
+            }
+        };
+
+        const renderTabs = () => {
+            if (tablist === null) {
+                return;
+            }
+
+            tablist.innerHTML = "";
+
+            state.flowcharts.forEach((flowchart) => {
+                const listItem = document.createElement("li");
+                listItem.classList.add("flex", "items-center");
+
+                const button = document.createElement("button");
+                button.type = "button";
+                button.dataset.flowchartTab = flowchart.id;
+                button.setAttribute("role", "tab");
+
+                const isActive = flowchart.id === state.activeId;
+
+                button.setAttribute("aria-selected", isActive === true ? "true" : "false");
+                button.setAttribute("tabindex", isActive === true ? "0" : "-1");
+
+                const baseClasses = [
+                    "group",
+                    "inline-flex",
+                    "items-center",
+                    "gap-2",
+                    "rounded-xl",
+                    "px-3",
+                    "py-2",
+                    "text-sm",
+                    "font-medium",
+                    "transition",
+                    "focus-visible:outline",
+                    "focus-visible:outline-2",
+                    "focus-visible:outline-offset-2",
+                    "focus-visible:outline-indigo-500"
+                ];
+
+                const activeClasses = [
+                    "bg-indigo-500/20",
+                    "text-indigo-100",
+                    "shadow-inner",
+                    "shadow-indigo-950/40",
+                    "ring-1",
+                    "ring-inset",
+                    "ring-indigo-500/40"
+                ];
+
+                const inactiveClasses = [
+                    "text-gray-300",
+                    "hover:bg-white/5",
+                    "hover:text-white"
+                ];
+
+                baseClasses.forEach((className) => button.classList.add(className));
+
+                if (isActive === true) {
+                    button.dataset.flowchartTabActive = "true";
+                    activeClasses.forEach((className) => button.classList.add(className));
+                }
+                else {
+                    button.dataset.flowchartTabActive = "false";
+                    inactiveClasses.forEach((className) => button.classList.add(className));
+                }
+
+                const labelElement = document.createElement("span");
+                labelElement.classList.add("truncate", "max-w-[10rem]");
+                labelElement.textContent = flowchart.title;
+
+                const closeButton = document.createElement("button");
+                closeButton.type = "button";
+                closeButton.classList.add(
+                    "inline-flex",
+                    "size-6",
+                    "items-center",
+                    "justify-center",
+                    "rounded-md",
+                    "text-gray-400",
+                    "transition",
+                    "hover:bg-white/10",
+                    "hover:text-white",
+                    "focus-visible:outline",
+                    "focus-visible:outline-2",
+                    "focus-visible:outline-offset-2",
+                    "focus-visible:outline-indigo-500"
+                );
+                closeButton.setAttribute("aria-label", "Cerrar " + flowchart.title);
+                closeButton.innerHTML = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\" class=\"size-4\"><path d=\"M6 18 18 6M6 6l12 12\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg>";
+
+                closeButton.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if (manager !== null) {
+                        manager.removeFlowchart(flowchart.id);
+                    }
+                });
+
+                button.addEventListener("click", (event) => {
+                    event.preventDefault();
+                    setActiveFlowchartTabManager(manager);
+                    selectFlowchart(flowchart.id, false);
+                });
+
+                button.appendChild(labelElement);
+                button.appendChild(closeButton);
+
+                listItem.appendChild(button);
+                tablist.appendChild(listItem);
+            });
+        };
+
+        const syncLevelSwitcher = (flowchart) => {
+            if (flowchart === null || levelController === null || typeof levelController.setLevel !== "function") {
+                return;
+            }
+
+            levelController.setLevel(flowchart.currentLevel);
+        };
+
+        const getActiveFlowchart = () => {
+            if (state.activeId === null) {
+                return null;
+            }
+
+            const match = state.flowcharts.find((item) => item.id === state.activeId);
+
+            if (typeof match === "undefined") {
+                return null;
+            }
+
+            return match;
+        };
+
+        const selectFlowchart = (id, shouldFocus) => {
+            const targetFlowchart = state.flowcharts.find((item) => item.id === id);
+
+            if (typeof targetFlowchart === "undefined") {
+                return;
+            }
+
+            state.activeId = targetFlowchart.id;
+            renderTabs();
+            updateCanvas(targetFlowchart);
+            syncLevelSwitcher(targetFlowchart);
+
+            if (shouldFocus === true) {
+                focusActiveTab();
+            }
+        };
+
+        const removeFlowchart = (id) => {
+            const index = state.flowcharts.findIndex((item) => item.id === id);
+
+            if (index === -1) {
+                return;
+            }
+
+            state.flowcharts.splice(index, 1);
+
+            if (state.flowcharts.length === 0) {
+                state.activeId = null;
+                renderTabs();
+                updateCanvas(null);
+                return;
+            }
+
+            if (state.activeId === id) {
+                const nextIndex = index >= state.flowcharts.length ? state.flowcharts.length - 1 : index;
+                state.activeId = state.flowcharts[nextIndex].id;
+            }
+
+            renderTabs();
+            const activeFlowchart = getActiveFlowchart();
+            updateCanvas(activeFlowchart);
+            syncLevelSwitcher(activeFlowchart);
+        };
+
+        const activateNext = () => {
+            if (state.flowcharts.length === 0) {
+                return;
+            }
+
+            if (state.activeId === null) {
+                const firstFlowchart = state.flowcharts[0];
+                selectFlowchart(firstFlowchart.id, true);
+                return;
+            }
+
+            const currentIndex = state.flowcharts.findIndex((item) => item.id === state.activeId);
+            const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % state.flowcharts.length;
+
+            selectFlowchart(state.flowcharts[nextIndex].id, true);
+        };
+
+        const activatePrevious = () => {
+            if (state.flowcharts.length === 0) {
+                return;
+            }
+
+            if (state.activeId === null) {
+                const lastFlowchart = state.flowcharts[state.flowcharts.length - 1];
+                selectFlowchart(lastFlowchart.id, true);
+                return;
+            }
+
+            const currentIndex = state.flowcharts.findIndex((item) => item.id === state.activeId);
+            const previousIndex = currentIndex === -1 ? state.flowcharts.length - 1 : (currentIndex - 1 + state.flowcharts.length) % state.flowcharts.length;
+
+            selectFlowchart(state.flowcharts[previousIndex].id, true);
+        };
+
+        const updateActiveLevel = (level) => {
+            const activeFlowchart = getActiveFlowchart();
+
+            if (activeFlowchart === null) {
+                return;
+            }
+
+            if (activeFlowchart.levels.includes(level) === false || activeFlowchart.currentLevel === level) {
+                return;
+            }
+
+            activeFlowchart.currentLevel = level;
+            updateLevelIndicators(activeFlowchart);
+        };
+
+        manager = {
+            removeFlowchart,
+            selectFlowchart,
+            activateNext,
+            activatePrevious,
+            updateActiveLevel
+        };
+
+        renderTabs();
+
+        const initialFlowchart = getActiveFlowchart();
+
+        if (initialFlowchart === null) {
+            setCanvasVisibility(true);
+        }
+        else {
+            updateCanvas(initialFlowchart);
+            syncLevelSwitcher(initialFlowchart);
+        }
+
+        if (workspaceIndex === 0) {
+            setActiveFlowchartTabManager(manager);
+        }
+
+        workspace.addEventListener("pointerdown", () => {
+            setActiveFlowchartTabManager(manager);
+        });
+
+        workspace.addEventListener("focusin", () => {
+            setActiveFlowchartTabManager(manager);
+        });
     });
 };
