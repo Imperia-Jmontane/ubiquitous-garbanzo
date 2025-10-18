@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,12 +9,15 @@ using MediatR;
 using MyApp.Data;
 using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount;
+using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Infrastructure.GitHub;
 using MyApp.Infrastructure.Persistence;
 using MyApp.Infrastructure.Secrets;
 using MyApp.Infrastructure.Time;
+using MyApp.Domain.Scopes;
 using Serilog;
 using Serilog.Context;
+using Microsoft.OpenApi.Models;
 
 namespace MyApp
 {
@@ -32,6 +36,53 @@ namespace MyApp
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(defaultConnectionString));
             builder.Services.AddControllersWithViews();
+            builder.Services.AddEndpointsApiExplorer();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                OpenApiSecurityScheme oauthScheme = new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.OAuth2,
+                    Description = "GitHub OAuth2 flow requiring repo, workflow, and read:user scopes.",
+                    Flows = new OpenApiOAuthFlows
+                    {
+                        AuthorizationCode = new OpenApiOAuthFlow
+                        {
+                            AuthorizationUrl = new Uri("https://github.com/login/oauth/authorize"),
+                            TokenUrl = new Uri("https://github.com/login/oauth/access_token"),
+                            Scopes = new Dictionary<string, string>
+                            {
+                                { GitHubScopes.Repo, "Full access to repositories for cloning." },
+                                { GitHubScopes.Workflow, "Manage GitHub workflows." },
+                                { GitHubScopes.ReadUser, "Read basic user profile information." }
+                            }
+                        }
+                    }
+                };
+
+                OpenApiInfo apiInfo = new OpenApiInfo
+                {
+                    Title = "MyApp API",
+                    Version = "v1",
+                    Description = "Endpoints for GitHub authentication and repository ingestion workflows."
+                };
+
+                options.SwaggerDoc("v1", apiInfo);
+                options.EnableAnnotations();
+                options.AddSecurityDefinition("GitHubOAuth", oauthScheme);
+                OpenApiSecurityScheme securitySchemeReference = new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "GitHubOAuth"
+                    }
+                };
+                OpenApiSecurityRequirement requirement = new OpenApiSecurityRequirement
+                {
+                    { securitySchemeReference, new List<string> { GitHubScopes.Repo, GitHubScopes.Workflow, GitHubScopes.ReadUser } }
+                };
+                options.AddSecurityRequirement(requirement);
+            });
             builder.Services.AddFluentValidationAutoValidation();
             builder.Services.AddFluentValidationClientsideAdapters();
             builder.Services.AddMediatR(typeof(LinkGitHubAccountCommand));
@@ -43,6 +94,8 @@ namespace MyApp
             builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
             builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
             builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
+            builder.Services.AddScoped<IGitHubOAuthStateRepository, GitHubOAuthStateRepository>();
+            builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();
 
             WebApplication app = builder.Build();
 
@@ -77,12 +130,20 @@ namespace MyApp
                 app.UseHsts();
             }
 
+            app.UseSwagger();
+            app.UseSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "MyApp API v1");
+                options.OAuthAppName("MyApp GitHub OAuth");
+            });
+
             app.UseHttpsRedirection();
             app.UseRouting();
 
             app.UseAuthorization();
 
             app.MapStaticAssets();
+            app.MapControllers();
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=Home}/{action=Index}/{id?}")

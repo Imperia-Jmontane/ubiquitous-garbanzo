@@ -10,10 +10,11 @@ namespace MyApp.Tests.Application.GitHubOAuth
     public sealed class ValidatorsTests
     {
         [Fact]
-        public void LinkGitHubAccountCommandValidator_ShouldFailForInvalidRedirect()
+        public void LinkGitHubAccountCommandValidator_ShouldFailForMissingState()
         {
             LinkGitHubAccountCommandValidator validator = new LinkGitHubAccountCommandValidator();
-            LinkGitHubAccountCommand command = new LinkGitHubAccountCommand(Guid.NewGuid(), "code", "state", "not-a-url");
+            string longState = new string('x', 300);
+            LinkGitHubAccountCommand command = new LinkGitHubAccountCommand(Guid.NewGuid(), "code", longState);
 
             ValidationResult result = validator.Validate(command);
             result.IsValid.Should().BeFalse();

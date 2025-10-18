@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using MediatR;
 
-namespace MyApp.Application.GitHubOAuth.DTOs
+namespace MyApp.Application.GitHubOAuth.Events
 {
-    public sealed class LinkGitHubAccountResultDto
+    public sealed class GitHubAccountLinkedEvent : INotification
     {
-        public LinkGitHubAccountResultDto(Guid userId, string provider, IReadOnlyCollection<string> scopes, DateTimeOffset expiresAt, bool isNewConnection, bool canClone)
+        public GitHubAccountLinkedEvent(Guid userId, string provider, IReadOnlyCollection<string> scopes, bool isNewConnection, bool canClone, DateTimeOffset occurredAt, string correlationId)
         {
             if (userId == Guid.Empty)
             {
@@ -25,9 +26,10 @@ namespace MyApp.Application.GitHubOAuth.DTOs
             UserId = userId;
             Provider = provider;
             Scopes = scopes;
-            ExpiresAt = expiresAt;
             IsNewConnection = isNewConnection;
             CanClone = canClone;
+            OccurredAt = occurredAt;
+            CorrelationId = correlationId;
         }
 
         public Guid UserId { get; }
@@ -36,10 +38,12 @@ namespace MyApp.Application.GitHubOAuth.DTOs
 
         public IReadOnlyCollection<string> Scopes { get; }
 
-        public DateTimeOffset ExpiresAt { get; }
-
         public bool IsNewConnection { get; }
 
         public bool CanClone { get; }
+
+        public DateTimeOffset OccurredAt { get; }
+
+        public string CorrelationId { get; }
     }
 }

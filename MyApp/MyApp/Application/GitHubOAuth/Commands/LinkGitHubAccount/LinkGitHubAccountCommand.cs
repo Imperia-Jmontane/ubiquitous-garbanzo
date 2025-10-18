@@ -6,7 +6,7 @@ namespace MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount
 {
     public sealed class LinkGitHubAccountCommand : IRequest<LinkGitHubAccountResultDto>
     {
-        public LinkGitHubAccountCommand(Guid userId, string code, string state, string redirectUri)
+        public LinkGitHubAccountCommand(Guid userId, string code, string state)
         {
             if (userId == Guid.Empty)
             {
@@ -23,15 +23,9 @@ namespace MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount
                 throw new ArgumentException("The state value cannot be null or whitespace.", nameof(state));
             }
 
-            if (string.IsNullOrWhiteSpace(redirectUri))
-            {
-                throw new ArgumentException("The redirect URI cannot be null or whitespace.", nameof(redirectUri));
-            }
-
             UserId = userId;
             Code = code;
             State = state;
-            RedirectUri = redirectUri;
         }
 
         public Guid UserId { get; }
@@ -40,6 +34,5 @@ namespace MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount
 
         public string State { get; }
 
-        public string RedirectUri { get; }
     }
 }

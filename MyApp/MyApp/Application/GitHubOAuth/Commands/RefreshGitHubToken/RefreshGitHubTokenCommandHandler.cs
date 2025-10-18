@@ -9,6 +9,7 @@ using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.DTOs;
 using MyApp.Application.GitHubOAuth.Models;
 using MyApp.Domain.Identity;
+using MyApp.Domain.Scopes;
 
 namespace MyApp.Application.GitHubOAuth.Commands.RefreshGitHubToken
 {
@@ -71,7 +72,9 @@ namespace MyApp.Application.GitHubOAuth.Commands.RefreshGitHubToken
                 refreshSuccessCounter.Add(1);
                 logger.LogInformation("GitHub token refreshed for user {UserId}. WasExpired: {WasExpired}", request.UserId, wasExpired);
 
-                return new RefreshGitHubTokenResultDto(request.UserId, response.Scopes, expiresAt, wasExpired);
+                bool canClone = MandatoryScopeSet.AreSatisfiedBy(response.Scopes);
+
+                return new RefreshGitHubTokenResultDto(request.UserId, response.Scopes, expiresAt, wasExpired, canClone);
             }
             catch (ValidationException)
             {

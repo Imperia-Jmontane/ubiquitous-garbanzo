@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MyApp.Application.Abstractions;
+using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Application.GitHubOAuth.Models;
 
 namespace MyApp.Infrastructure.GitHub

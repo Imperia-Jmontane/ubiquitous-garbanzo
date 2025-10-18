@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using MyApp.Application.Abstractions;
+using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Application.GitHubOAuth.Models;
 using MyApp.Infrastructure.GitHub;
 using Xunit;
@@ -27,7 +28,7 @@ namespace MyApp.Tests.Infrastructure.GitHub
 
             Mock<ILogger<GitHubOAuthClient>> loggerMock = new Mock<ILogger<GitHubOAuthClient>>();
             GitHubOAuthOptions options = new GitHubOAuthOptions { TokenEndpoint = "https://example.com/token" };
-            IOptions<GitHubOAuthOptions> optionsWrapper = Microsoft.Extensions.Options.Options.Create(options);
+            IOptions<GitHubOAuthOptions> optionsWrapper = Options.Create(options);
 
             TestHttpMessageHandler messageHandler = new TestHttpMessageHandler();
             HttpClient httpClient = new HttpClient(messageHandler);

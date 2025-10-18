@@ -5,7 +5,7 @@ namespace MyApp.Application.GitHubOAuth.DTOs
 {
     public sealed class RefreshGitHubTokenResultDto
     {
-        public RefreshGitHubTokenResultDto(Guid userId, IReadOnlyCollection<string> scopes, DateTimeOffset expiresAt, bool wasExpired)
+        public RefreshGitHubTokenResultDto(Guid userId, IReadOnlyCollection<string> scopes, DateTimeOffset expiresAt, bool wasExpired, bool canClone)
         {
             if (userId == Guid.Empty)
             {
@@ -21,6 +21,7 @@ namespace MyApp.Application.GitHubOAuth.DTOs
             Scopes = scopes;
             ExpiresAt = expiresAt;
             WasExpired = wasExpired;
+            CanClone = canClone;
         }
 
         public Guid UserId { get; }
@@ -30,5 +31,7 @@ namespace MyApp.Application.GitHubOAuth.DTOs
         public DateTimeOffset ExpiresAt { get; }
 
         public bool WasExpired { get; }
+
+        public bool CanClone { get; }
     }
 }
