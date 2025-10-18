@@ -14,6 +14,7 @@ using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Commands.LinkGitHubAccount;
 using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Application.Configuration;
+using MyApp.Infrastructure.Git;
 using MyApp.Infrastructure.GitHub;
 using MyApp.Infrastructure.Persistence;
 using MyApp.Infrastructure.Secrets;
@@ -43,6 +44,16 @@ namespace MyApp
             Directory.CreateDirectory(dataProtectionPath);
             DirectoryInfo dataProtectionDirectory = new DirectoryInfo(dataProtectionPath);
             builder.Services.AddDataProtection().PersistKeysToFileSystem(dataProtectionDirectory);
+
+            string configuredRepositoryRoot = builder.Configuration.GetValue<string>("Repositories:RootPath") ?? "temp";
+            string repositoryRootPath = Path.IsPathRooted(configuredRepositoryRoot)
+                ? configuredRepositoryRoot
+                : Path.Combine(builder.Environment.ContentRootPath, configuredRepositoryRoot);
+            Directory.CreateDirectory(repositoryRootPath);
+            builder.Services.Configure<RepositoryStorageOptions>(options =>
+            {
+                options.RootPath = repositoryRootPath;
+            });
 
             string rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("The connection string 'DefaultConnection' was not found.");
             string resolvedConnectionString = rawConnectionString.Contains("{AppDataPath}", StringComparison.OrdinalIgnoreCase)
@@ -135,6 +146,7 @@ namespace MyApp
             builder.Services.AddSingleton<IGitHubOAuthSettingsProvider, GitHubOAuthSettingsProvider>();
             builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
             builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection("Bootstrap"));
+            builder.Services.AddSingleton<ILocalRepositoryService, LocalRepositoryService>();
             builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
             builder.Services.AddHttpClient<IGitHubUserProfileClient, GitHubUserProfileClient>(client =>
             {
