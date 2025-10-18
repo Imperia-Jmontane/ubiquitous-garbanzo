@@ -44,10 +44,36 @@ namespace MyApp
             builder.Services.AddDataProtection().PersistKeysToFileSystem(dataProtectionDirectory);
 
             string rawConnectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("The connection string 'DefaultConnection' was not found.");
-            string defaultConnectionString = rawConnectionString.Replace("{AppDataPath}", appDataPath, StringComparison.OrdinalIgnoreCase);
+            string resolvedConnectionString = rawConnectionString.Contains("{AppDataPath}", StringComparison.OrdinalIgnoreCase)
+                ? rawConnectionString.Replace("{AppDataPath}", appDataPath, StringComparison.OrdinalIgnoreCase)
+                : rawConnectionString;
+
+            string configuredProvider = builder.Configuration.GetValue<string>("Database:Provider") ?? string.Empty;
+            bool providerForSqlite = string.Equals(configuredProvider, "Sqlite", StringComparison.OrdinalIgnoreCase);
+            bool providerForSqlServer = string.Equals(configuredProvider, "SqlServer", StringComparison.OrdinalIgnoreCase);
+
+            bool looksLikeSqlite = resolvedConnectionString.IndexOf(".db", StringComparison.OrdinalIgnoreCase) >= 0
+                || resolvedConnectionString.IndexOf(".sqlite", StringComparison.OrdinalIgnoreCase) >= 0
+                || resolvedConnectionString.IndexOf("mode=memory", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            bool looksLikeSqlServer = resolvedConnectionString.IndexOf("server=", StringComparison.OrdinalIgnoreCase) >= 0
+                || (resolvedConnectionString.IndexOf("data source=", StringComparison.OrdinalIgnoreCase) >= 0 && !looksLikeSqlite)
+                || resolvedConnectionString.IndexOf("initial catalog=", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            bool useSqlServer = providerForSqlServer || (!providerForSqlite && looksLikeSqlServer);
 
             // Add services to the container.
-            builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(defaultConnectionString));
+            builder.Services.AddDbContext<ApplicationDbContext>(options =>
+            {
+                if (useSqlServer)
+                {
+                    options.UseSqlServer(resolvedConnectionString);
+                }
+                else
+                {
+                    options.UseSqlite(resolvedConnectionString);
+                }
+            });
             builder.Services.AddControllersWithViews();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
@@ -114,6 +140,12 @@ namespace MyApp
             builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();
 
             WebApplication app = builder.Build();
+
+            using (IServiceScope migrationScope = app.Services.CreateScope())
+            {
+                ApplicationDbContext applicationDbContext = migrationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                applicationDbContext.Database.Migrate();
+            }
 
             app.UseSerilogRequestLogging();
 

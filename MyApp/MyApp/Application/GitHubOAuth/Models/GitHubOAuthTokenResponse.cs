@@ -5,16 +5,11 @@ namespace MyApp.Application.GitHubOAuth.Models
 {
     public sealed class GitHubOAuthTokenResponse
     {
-        public GitHubOAuthTokenResponse(string accessToken, string refreshToken, int expiresInSeconds, string tokenType, string scope, string? externalUserId)
+        public GitHubOAuthTokenResponse(string accessToken, string? refreshToken, int expiresInSeconds, string tokenType, string scope, string? externalUserId)
         {
             if (string.IsNullOrWhiteSpace(accessToken))
             {
                 throw new ArgumentException("The access token cannot be null or whitespace.", nameof(accessToken));
-            }
-
-            if (string.IsNullOrWhiteSpace(refreshToken))
-            {
-                throw new ArgumentException("The refresh token cannot be null or whitespace.", nameof(refreshToken));
             }
 
             if (expiresInSeconds <= 0)
@@ -28,7 +23,7 @@ namespace MyApp.Application.GitHubOAuth.Models
             }
 
             AccessToken = accessToken;
-            RefreshToken = refreshToken;
+            RefreshToken = string.IsNullOrWhiteSpace(refreshToken) ? null : refreshToken;
             ExpiresIn = TimeSpan.FromSeconds(expiresInSeconds);
             TokenType = tokenType;
             Scopes = ParseScopes(scope);
@@ -37,7 +32,9 @@ namespace MyApp.Application.GitHubOAuth.Models
 
         public string AccessToken { get; }
 
-        public string RefreshToken { get; }
+        public string? RefreshToken { get; }
+
+        public bool SupportsRefresh => !string.IsNullOrWhiteSpace(RefreshToken);
 
         public TimeSpan ExpiresIn { get; }
 

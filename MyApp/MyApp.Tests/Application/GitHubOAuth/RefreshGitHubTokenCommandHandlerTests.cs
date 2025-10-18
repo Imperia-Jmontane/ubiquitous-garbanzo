@@ -152,6 +152,46 @@ namespace MyApp.Tests.Application.GitHubOAuth
             counterValues.ContainsKey("github.oauth.refresh.success.count").Should().BeFalse();
         }
 
+        [Fact]
+        public async Task Handle_ShouldThrowWhenRefreshTokenUnavailable()
+        {
+            Mock<IGitHubOAuthClient> gitHubOAuthClientMock = new Mock<IGitHubOAuthClient>();
+            Mock<IUserExternalLoginRepository> repositoryMock = new Mock<IUserExternalLoginRepository>();
+            Mock<ISystemClock> clockMock = new Mock<ISystemClock>();
+            Mock<IValidator<RefreshGitHubTokenCommand>> validatorMock = new Mock<IValidator<RefreshGitHubTokenCommand>>();
+            Mock<Microsoft.Extensions.Logging.ILogger<RefreshGitHubTokenCommandHandler>> loggerMock = new Mock<Microsoft.Extensions.Logging.ILogger<RefreshGitHubTokenCommandHandler>>();
+            Meter meter = new Meter("TestMeter.RefreshMissing");
+            Dictionary<string, long> counterValues = new Dictionary<string, long>();
+            using MeterListener listener = CreateListener(meter, counterValues);
+
+            DateTimeOffset currentTime = DateTimeOffset.UtcNow;
+            Guid userId = Guid.NewGuid();
+            UserExternalLogin login = new UserExternalLogin(userId, "GitHub", "node", "oldAccess", null, currentTime.AddMinutes(10));
+            clockMock.Setup(clock => clock.UtcNow).Returns(currentTime);
+            repositoryMock.Setup(repository => repository.GetAsync(userId, "GitHub", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(login);
+
+            validatorMock.Setup(validator => validator.ValidateAsync(It.IsAny<RefreshGitHubTokenCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ValidationResult());
+
+            RefreshGitHubTokenCommandHandler handler = new RefreshGitHubTokenCommandHandler(
+                gitHubOAuthClientMock.Object,
+                repositoryMock.Object,
+                clockMock.Object,
+                validatorMock.Object,
+                loggerMock.Object,
+                meter);
+
+            RefreshGitHubTokenCommand command = new RefreshGitHubTokenCommand(userId, "state", "https://example.com/callback");
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(command, CancellationToken.None));
+
+            listener.Dispose();
+
+            counterValues.GetValueOrDefault("github.oauth.refresh.failure.count").Should().Be(1);
+            gitHubOAuthClientMock.Verify(client => client.RefreshTokenAsync(It.IsAny<GitHubTokenRefreshRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        }
+
         private static MeterListener CreateListener(Meter meter, Dictionary<string, long> counterValues)
         {
             MeterListener listener = new MeterListener();

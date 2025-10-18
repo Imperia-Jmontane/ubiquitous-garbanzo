@@ -4,7 +4,7 @@ namespace MyApp.Domain.Identity
 {
     public sealed class UserExternalLogin
     {
-        public UserExternalLogin(Guid userId, string provider, string externalUserId, string accessToken, string refreshToken, DateTimeOffset expiresAt)
+        public UserExternalLogin(Guid userId, string provider, string externalUserId, string accessToken, string? refreshToken, DateTimeOffset expiresAt)
         {
             if (userId == Guid.Empty)
             {
@@ -26,11 +26,6 @@ namespace MyApp.Domain.Identity
                 throw new ArgumentException("The access token cannot be null or whitespace.", nameof(accessToken));
             }
 
-            if (string.IsNullOrWhiteSpace(refreshToken))
-            {
-                throw new ArgumentException("The refresh token cannot be null or whitespace.", nameof(refreshToken));
-            }
-
             if (expiresAt <= DateTimeOffset.UtcNow.AddMinutes(-5))
             {
                 throw new ArgumentException("The expiration time must be in the future.", nameof(expiresAt));
@@ -41,7 +36,7 @@ namespace MyApp.Domain.Identity
             Provider = provider;
             ExternalUserId = externalUserId;
             AccessToken = accessToken;
-            RefreshToken = refreshToken;
+            RefreshToken = string.IsNullOrWhiteSpace(refreshToken) ? null : refreshToken;
             ExpiresAt = expiresAt;
             CreatedAt = DateTimeOffset.UtcNow;
             UpdatedAt = CreatedAt;
@@ -61,7 +56,7 @@ namespace MyApp.Domain.Identity
 
         public string AccessToken { get; private set; } = string.Empty;
 
-        public string RefreshToken { get; private set; } = string.Empty;
+        public string? RefreshToken { get; private set; }
 
         public DateTimeOffset ExpiresAt { get; private set; }
 
@@ -69,16 +64,13 @@ namespace MyApp.Domain.Identity
 
         public DateTimeOffset UpdatedAt { get; private set; }
 
-        public void UpdateTokens(string newAccessToken, string newRefreshToken, DateTimeOffset newExpiresAt)
+        public bool SupportsRefresh => !string.IsNullOrWhiteSpace(RefreshToken);
+
+        public void UpdateTokens(string newAccessToken, string? newRefreshToken, DateTimeOffset newExpiresAt)
         {
             if (string.IsNullOrWhiteSpace(newAccessToken))
             {
                 throw new ArgumentException("The new access token cannot be null or whitespace.", nameof(newAccessToken));
-            }
-
-            if (string.IsNullOrWhiteSpace(newRefreshToken))
-            {
-                throw new ArgumentException("The new refresh token cannot be null or whitespace.", nameof(newRefreshToken));
             }
 
             if (newExpiresAt <= DateTimeOffset.UtcNow.AddMinutes(-5))
@@ -87,7 +79,7 @@ namespace MyApp.Domain.Identity
             }
 
             AccessToken = newAccessToken;
-            RefreshToken = newRefreshToken;
+            RefreshToken = string.IsNullOrWhiteSpace(newRefreshToken) ? null : newRefreshToken;
             ExpiresAt = newExpiresAt;
             UpdatedAt = DateTimeOffset.UtcNow;
         }

@@ -90,6 +90,36 @@ namespace MyApp.Tests.Infrastructure.GitHub
         }
 
         [Fact]
+        public async Task ExchangeCodeAsync_ShouldHandleMissingRefreshToken()
+        {
+            Mock<IGitCredentialStore> credentialStoreMock = new Mock<IGitCredentialStore>();
+            credentialStoreMock.Setup(store => store.GetClientCredentialsAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new GitHubOAuthClientCredentials("client", "secret"));
+
+            Mock<ILogger<GitHubOAuthClient>> loggerMock = new Mock<ILogger<GitHubOAuthClient>>();
+            GitHubOAuthOptions options = new GitHubOAuthOptions { TokenEndpoint = "https://example.com/token" };
+            IOptions<GitHubOAuthOptions> optionsWrapper = Options.Create(options);
+
+            TestHttpMessageHandler messageHandler = new TestHttpMessageHandler();
+            HttpClient httpClient = new HttpClient(messageHandler);
+
+            GitHubOAuthClient client = new GitHubOAuthClient(httpClient, credentialStoreMock.Object, optionsWrapper, loggerMock.Object);
+
+            messageHandler.ResponseContent = JsonSerializer.Serialize(new
+            {
+                access_token = "token",
+                expires_in = 3600,
+                token_type = "bearer",
+                scope = "repo"
+            });
+
+            GitHubOAuthTokenResponse response = await client.ExchangeCodeAsync(new GitHubCodeExchangeRequest("code", "https://app/callback", "state"), CancellationToken.None);
+
+            response.RefreshToken.Should().BeNull();
+            response.SupportsRefresh.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task SendRequestAsync_ShouldThrowWhenResponseIsNotSuccessful()
         {
             Mock<IGitCredentialStore> credentialStoreMock = new Mock<IGitCredentialStore>();

@@ -1,4 +1,6 @@
+using System;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyApp.Domain.Identity;
 using MyApp.Domain.Observability;
 
@@ -21,6 +23,31 @@ namespace MyApp.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            if (Database.IsSqlite())
+            {
+                ValueConverter<DateTimeOffset, DateTime> dateTimeOffsetConverter = new ValueConverter<DateTimeOffset, DateTime>(
+                    value => value.UtcDateTime,
+                    value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
+
+                modelBuilder.Entity<UserExternalLogin>(entity =>
+                {
+                    entity.Property(login => login.CreatedAt).HasConversion(dateTimeOffsetConverter);
+                    entity.Property(login => login.UpdatedAt).HasConversion(dateTimeOffsetConverter);
+                    entity.Property(login => login.ExpiresAt).HasConversion(dateTimeOffsetConverter);
+                });
+
+                modelBuilder.Entity<GitHubOAuthState>(entity =>
+                {
+                    entity.Property(state => state.CreatedAt).HasConversion(dateTimeOffsetConverter);
+                    entity.Property(state => state.ExpiresAt).HasConversion(dateTimeOffsetConverter);
+                });
+
+                modelBuilder.Entity<AuditTrailEntry>(entity =>
+                {
+                    entity.Property(entry => entry.OccurredAt).HasConversion(dateTimeOffsetConverter);
+                });
+            }
+
             modelBuilder.Entity<UserExternalLogin>(entity =>
             {
                 entity.ToTable("UserExternalLogins");
@@ -35,7 +62,6 @@ namespace MyApp.Data
                     .IsRequired()
                     .HasMaxLength(4000);
                 entity.Property(login => login.RefreshToken)
-                    .IsRequired()
                     .HasMaxLength(4000);
                 entity.Property(login => login.CreatedAt)
                     .IsRequired();

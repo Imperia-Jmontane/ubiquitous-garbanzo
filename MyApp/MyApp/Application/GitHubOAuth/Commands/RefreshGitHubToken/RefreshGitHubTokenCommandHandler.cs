@@ -61,7 +61,13 @@ namespace MyApp.Application.GitHubOAuth.Commands.RefreshGitHubToken
                     refreshExpiredCounter.Add(1);
                 }
 
-                GitHubTokenRefreshRequest refreshRequest = new GitHubTokenRefreshRequest(existing.RefreshToken);
+                string refreshToken = existing.RefreshToken ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(refreshToken))
+                {
+                    throw new InvalidOperationException("The GitHub connection does not support token refresh. Re-link the account to obtain a refresh token.");
+                }
+
+                GitHubTokenRefreshRequest refreshRequest = new GitHubTokenRefreshRequest(refreshToken);
                 GitHubOAuthTokenResponse response = await gitHubOAuthClient.RefreshTokenAsync(refreshRequest, cancellationToken);
 
                 DateTimeOffset expiresAt = systemClock.UtcNow.Add(response.ExpiresIn);
