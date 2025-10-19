@@ -6,7 +6,7 @@ namespace MyApp.Models.Home
 {
     public sealed class HomeIndexViewModel
     {
-        public HomeIndexViewModel(IReadOnlyCollection<RepositoryListItemViewModel> repositories, AddRepositoryRequest addRepository, string? notification)
+        public HomeIndexViewModel(IReadOnlyCollection<RepositoryListItemViewModel> repositories, AddRepositoryRequest addRepository, string? notification, bool isCloneInProgress)
         {
             if (repositories == null)
             {
@@ -21,6 +21,7 @@ namespace MyApp.Models.Home
             Repositories = repositories.ToList();
             AddRepository = addRepository;
             Notification = notification;
+            IsCloneInProgress = isCloneInProgress;
         }
 
         public IReadOnlyCollection<RepositoryListItemViewModel> Repositories { get; }
@@ -28,6 +29,8 @@ namespace MyApp.Models.Home
         public AddRepositoryRequest AddRepository { get; }
 
         public string? Notification { get; }
+
+        public bool IsCloneInProgress { get; }
 
         public bool HasRepositories
         {

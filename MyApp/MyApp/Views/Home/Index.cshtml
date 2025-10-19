@@ -26,8 +26,30 @@
 
         @if (!string.IsNullOrWhiteSpace(Model.Notification))
         {
+            bool isCloneInProgress = Model.IsCloneInProgress;
+            string notificationTitle = isCloneInProgress ? "Repository queued:" : "Repository update:";
             <div class="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-                <span class="font-semibold">Repository queued:</span> @Model.Notification
+                <span class="font-semibold">@notificationTitle</span> @Model.Notification
+
+                @if (isCloneInProgress)
+                {
+                    <div class="mt-6 rounded-lg border border-white/10 bg-black/40 p-4 text-left text-gray-200">
+                        <h4 class="sr-only">Cloning status</h4>
+                        <p class="text-sm font-medium text-white">Cloning repository files...</p>
+                        <div aria-hidden="true" class="mt-4">
+                            <div class="overflow-hidden rounded-full bg-white/10">
+                                <div style="width: 40%;" class="h-2 rounded-full bg-indigo-500"></div>
+                            </div>
+                            <div class="mt-4 grid grid-cols-4 text-xs font-medium text-gray-400">
+                                <div class="text-indigo-400">Queued</div>
+                                <div class="text-center text-indigo-400">Downloading</div>
+                                <div class="text-center">Verifying</div>
+                                <div class="text-right">Ready</div>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-xs text-gray-400">We are cloning your repository. This usually takes less than a minute.</p>
+                    </div>
+                }
             </div>
         }
     </div>

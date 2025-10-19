@@ -147,6 +147,7 @@ namespace MyApp
             builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
             builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection("Bootstrap"));
             builder.Services.AddSingleton<ILocalRepositoryService, LocalRepositoryService>();
+            builder.Services.AddSingleton<IRepositoryCloneCoordinator, RepositoryCloneCoordinator>();
             builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
             builder.Services.AddHttpClient<IGitHubUserProfileClient, GitHubUserProfileClient>(client =>
             {

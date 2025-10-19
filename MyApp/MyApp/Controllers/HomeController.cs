@@ -23,12 +23,36 @@ namespace MyApp.Controllers
         {
             IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
             string? addedRepositoryUrl = null;
+            bool isCloneInProgress = false;
 
-            if (TempData != null && TempData.ContainsKey("RepositoryAdded"))
+            if (TempData != null)
             {
-                addedRepositoryUrl = TempData["RepositoryAdded"] as string;
+                if (TempData.ContainsKey("RepositoryAdded"))
+                {
+                    addedRepositoryUrl = TempData["RepositoryAdded"] as string;
+                }
+
+                if (TempData.ContainsKey("RepositoryCloneInProgress"))
+                {
+                    object? cloneValue = TempData["RepositoryCloneInProgress"];
+
+                    if (cloneValue is bool cloneFlag)
+                    {
+                        isCloneInProgress = cloneFlag;
+                    }
+                    else if (cloneValue != null)
+                    {
+                        bool parsed;
+
+                        if (bool.TryParse(cloneValue.ToString(), out parsed))
+                        {
+                            isCloneInProgress = parsed;
+                        }
+                    }
+                }
             }
-            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest());
+
+            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), isCloneInProgress);
             return View(viewModel);
         }
 
@@ -44,7 +68,7 @@ namespace MyApp.Controllers
             if (!ModelState.IsValid)
             {
                 IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
-                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request);
+                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, false);
                 return View("Index", invalidViewModel);
             }
 
@@ -56,7 +80,7 @@ namespace MyApp.Controllers
                 string errorMessage = string.IsNullOrWhiteSpace(cloneResult.Message) ? "Failed to clone repository." : cloneResult.Message;
                 ModelState.AddModelError(fieldKey, errorMessage);
                 IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
-                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request);
+                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, false);
                 return View("Index", invalidViewModel);
             }
 
@@ -66,6 +90,7 @@ namespace MyApp.Controllers
                     ? string.Format("Repository already cloned: {0}", request.RepositoryUrl)
                     : request.RepositoryUrl;
                 TempData["RepositoryAdded"] = notification;
+                TempData["RepositoryCloneInProgress"] = !cloneResult.AlreadyExists;
             }
             return RedirectToAction(nameof(Index));
         }
@@ -76,7 +101,7 @@ namespace MyApp.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest)
+        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, bool isCloneInProgress)
         {
             List<RepositoryListItemViewModel> repositoryViewModels = new List<RepositoryListItemViewModel>();
 
@@ -90,7 +115,7 @@ namespace MyApp.Controllers
                 repositoryViewModels.Add(repositoryViewModel);
             }
 
-            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification);
+            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, isCloneInProgress);
         }
     }
 }
