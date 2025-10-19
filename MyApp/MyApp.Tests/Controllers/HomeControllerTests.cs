@@ -28,6 +28,7 @@ namespace MyApp.Tests.Controllers
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(repositories);
             Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
+            cloneCoordinatorMock.Setup(coordinator => coordinator.GetActiveClones()).Returns(new List<RepositoryCloneStatus>());
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
             HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
@@ -48,6 +49,7 @@ namespace MyApp.Tests.Controllers
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(new List<LocalRepository>());
             Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
+            cloneCoordinatorMock.Setup(coordinator => coordinator.GetActiveClones()).Returns(new List<RepositoryCloneStatus>());
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
             HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
@@ -116,13 +118,11 @@ namespace MyApp.Tests.Controllers
             RedirectToActionResult redirectResult = Assert.IsType<RedirectToActionResult>(result);
             Assert.Equal(nameof(HomeController.Index), redirectResult.ActionName);
             Assert.True(controller.TempData.ContainsKey("RepositoryAdded"));
-            Assert.False(controller.TempData.ContainsKey("RepositoryCloneOperationId"));
         }
 
         [Fact]
-        public void Index_ShouldPopulateCloneProgressFromTempData()
+        public void Index_ShouldIncludeActiveCloneStatuses()
         {
-            List<string> branches = new List<string>();
             List<LocalRepository> repositories = new List<LocalRepository>();
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(repositories);
@@ -131,23 +131,18 @@ namespace MyApp.Tests.Controllers
 
             Guid operationId = Guid.NewGuid();
             RepositoryCloneStatus status = new RepositoryCloneStatus(operationId, "https://github.com/example/repo", RepositoryCloneState.Running, 42.0, "Receiving objects", string.Empty, DateTimeOffset.UtcNow);
-            cloneCoordinatorMock.Setup(coordinator => coordinator.TryGetStatus(operationId, out status)).Returns(true);
+            cloneCoordinatorMock.Setup(coordinator => coordinator.GetActiveClones()).Returns(new List<RepositoryCloneStatus> { status });
 
             HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
-            DefaultHttpContext httpContext = new DefaultHttpContext();
-            Mock<ITempDataProvider> tempDataProviderMock = new Mock<ITempDataProvider>();
-            controller.TempData = new TempDataDictionary(httpContext, tempDataProviderMock.Object)
-            {
-                { "RepositoryCloneOperationId", operationId.ToString() }
-            };
 
             IActionResult result = controller.Index();
 
             ViewResult viewResult = Assert.IsType<ViewResult>(result);
             HomeIndexViewModel viewModel = Assert.IsType<HomeIndexViewModel>(viewResult.Model);
             Assert.True(viewModel.IsCloneInProgress);
-            Assert.Equal(42.0, viewModel.CloneProgress.Percentage);
-            Assert.Equal("Receiving objects", viewModel.CloneProgress.Stage);
+            CloneProgressViewModel cloneProgress = Assert.Single(viewModel.CloneProgressItems);
+            Assert.Equal(42.0, cloneProgress.Percentage);
+            Assert.Equal("Receiving objects", cloneProgress.Stage);
         }
     }
 }

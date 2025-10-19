@@ -26,7 +26,7 @@ namespace MyApp.Controllers
         {
             IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
             string? addedRepositoryUrl = null;
-            CloneProgressViewModel cloneProgress = CloneProgressViewModel.CreateInactive();
+            List<CloneProgressViewModel> cloneProgressItems = new List<CloneProgressViewModel>();
 
             if (TempData != null)
             {
@@ -34,29 +34,24 @@ namespace MyApp.Controllers
                 {
                     addedRepositoryUrl = TempData["RepositoryAdded"] as string;
                 }
-
-                if (TempData.ContainsKey("RepositoryCloneOperationId"))
-                {
-                    object? operationValue = TempData["RepositoryCloneOperationId"];
-                    Guid operationId;
-
-                    if (operationValue is string operationText && Guid.TryParse(operationText, out operationId))
-                    {
-                        RepositoryCloneStatus? status;
-
-                        if (_cloneCoordinator.TryGetStatus(operationId, out status) && status != null)
-                        {
-                            cloneProgress = new CloneProgressViewModel(true, status.OperationId, status.RepositoryUrl, status.Percentage, status.Stage, status.Message);
-                        }
-                        else
-                        {
-                            cloneProgress = new CloneProgressViewModel(true, operationId, string.Empty, 0.0, "Queued", string.Empty);
-                        }
-                    }
-                }
             }
 
-            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), cloneProgress);
+            IReadOnlyCollection<RepositoryCloneStatus> activeClones = _cloneCoordinator.GetActiveClones();
+
+            foreach (RepositoryCloneStatus status in activeClones)
+            {
+                CloneProgressViewModel progressViewModel = new CloneProgressViewModel(
+                    status.OperationId,
+                    status.RepositoryUrl,
+                    status.Percentage,
+                    status.Stage,
+                    status.Message,
+                    status.State,
+                    status.LastUpdatedUtc);
+                cloneProgressItems.Add(progressViewModel);
+            }
+
+            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), cloneProgressItems);
             return View(viewModel);
         }
 
@@ -72,7 +67,7 @@ namespace MyApp.Controllers
             if (!ModelState.IsValid)
             {
                 IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
-                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, CloneProgressViewModel.CreateInactive());
+                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, new List<CloneProgressViewModel>());
                 return View("Index", invalidViewModel);
             }
 
@@ -97,12 +92,16 @@ namespace MyApp.Controllers
 
                 TempData["RepositoryAdded"] = notification;
 
-                if (ticket.HasOperation)
-                {
-                    TempData["RepositoryCloneOperationId"] = ticket.OperationId.ToString();
-                }
             }
             return RedirectToAction(nameof(Index));
+        }
+
+        [HttpGet]
+        public IActionResult RepositoryList()
+        {
+            IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
+            List<RepositoryListItemViewModel> repositoryViewModels = MapRepositories(repositories);
+            return PartialView("_RepositoryList", repositoryViewModels);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -111,7 +110,13 @@ namespace MyApp.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, CloneProgressViewModel cloneProgress)
+        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, IReadOnlyCollection<CloneProgressViewModel> cloneProgressItems)
+        {
+            List<RepositoryListItemViewModel> repositoryViewModels = MapRepositories(repositories);
+            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, cloneProgressItems);
+        }
+
+        private static List<RepositoryListItemViewModel> MapRepositories(IReadOnlyCollection<LocalRepository> repositories)
         {
             List<RepositoryListItemViewModel> repositoryViewModels = new List<RepositoryListItemViewModel>();
 
@@ -125,7 +130,7 @@ namespace MyApp.Controllers
                 repositoryViewModels.Add(repositoryViewModel);
             }
 
-            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, cloneProgress);
+            return repositoryViewModels;
         }
     }
 }

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using MyApp.Application.Abstractions;
@@ -72,6 +73,25 @@ namespace MyApp.Tests.Controllers.Api
 
             ActionResult<RepositoryCloneController.RepositoryCloneStatusResponse> result = controller.GetCloneStatus(Guid.NewGuid());
             Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public void GetActiveClones_ShouldReturnStatuses()
+        {
+            Guid operationId = Guid.NewGuid();
+            RepositoryCloneStatus status = new RepositoryCloneStatus(operationId, "https://github.com/example/repo", RepositoryCloneState.Running, 15.0, "Queued", string.Empty, DateTimeOffset.UtcNow);
+
+            Mock<IRepositoryCloneCoordinator> coordinatorMock = new Mock<IRepositoryCloneCoordinator>();
+            coordinatorMock.Setup(coordinator => coordinator.GetActiveClones()).Returns(new List<RepositoryCloneStatus> { status });
+
+            RepositoryCloneController controller = new RepositoryCloneController(coordinatorMock.Object);
+
+            ActionResult<IReadOnlyCollection<RepositoryCloneController.RepositoryCloneStatusResponse>> result = controller.GetActiveClones();
+            OkObjectResult okResult = Assert.IsType<OkObjectResult>(result.Result);
+            IReadOnlyCollection<RepositoryCloneController.RepositoryCloneStatusResponse> responses = Assert.IsAssignableFrom<IReadOnlyCollection<RepositoryCloneController.RepositoryCloneStatusResponse>>(okResult.Value);
+            RepositoryCloneController.RepositoryCloneStatusResponse single = Assert.Single(responses);
+            Assert.Equal(operationId, single.OperationId);
+            Assert.Equal("Running", single.State);
         }
     }
 }

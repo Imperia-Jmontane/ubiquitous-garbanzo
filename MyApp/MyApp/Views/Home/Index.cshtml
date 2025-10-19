@@ -1,8 +1,15 @@
 @model MyApp.Models.Home.HomeIndexViewModel
-@using System.Globalization
+@using System.Text.Json
+@using System.Text.Json.Serialization
 
 @{
     ViewData["Title"] = "Repositories";
+    JsonSerializerOptions cloneSerializerOptions = new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+    cloneSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    string initialCloneJson = JsonSerializer.Serialize(Model.CloneProgressItems, cloneSerializerOptions);
 }
 
 <section class="mx-auto max-w-6xl space-y-10 py-8">
@@ -25,75 +32,15 @@
             </div>
         </form>
 
-        @{
-            MyApp.Models.Home.CloneProgressViewModel cloneProgress = Model.CloneProgress;
-            string notificationMessage = Model.Notification ?? string.Empty;
-            bool hasNotification = !string.IsNullOrWhiteSpace(notificationMessage);
-            bool cloneInProgress = cloneProgress.IsActive;
-            string notificationTitle = cloneInProgress ? "Repository queued:" : "Repository update:";
-            string operationIdValue = cloneProgress.OperationId == Guid.Empty ? string.Empty : cloneProgress.OperationId.ToString();
-            string percentageValue = cloneProgress.Percentage.ToString("0.0", CultureInfo.InvariantCulture);
-            string stageValue = string.IsNullOrWhiteSpace(cloneProgress.Stage) ? "Preparing repository..." : cloneProgress.Stage;
-            string messageValue = cloneProgress.Message ?? string.Empty;
-            string stateValue = cloneInProgress ? "Running" : "Completed";
-            string repositoryUrlValue = cloneProgress.RepositoryUrl ?? string.Empty;
-            double boundedProgress = Math.Max(1.0, Math.Min(cloneProgress.Percentage, 100.0));
-            string boundedProgressValue = boundedProgress.ToString("0.0", CultureInfo.InvariantCulture);
+        @if (!string.IsNullOrWhiteSpace(Model.Notification))
+        {
+            <div class="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                <span class="font-semibold">Repository update:</span> @Model.Notification
+            </div>
         }
 
-        <div data-clone-status-container="true"
-             data-has-notification="@hasNotification.ToString().ToLowerInvariant()"
-             data-notification="@notificationMessage"
-             data-progress-active="@cloneInProgress.ToString().ToLowerInvariant()"
-             data-operation-id="@operationIdValue"
-             data-percentage="@percentageValue"
-             data-stage="@stageValue"
-             data-message="@messageValue"
-             data-state="@stateValue"
-             data-repository-url="@repositoryUrlValue">
-            @if (hasNotification)
-            {
-                <div class="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200" data-clone-card="true">
-                    <span class="font-semibold">@notificationTitle</span> @notificationMessage
-
-                    @if (cloneInProgress)
-                    {
-                        <div class="mt-6 rounded-lg border border-white/10 bg-black/40 p-4 text-left text-gray-200" data-clone-panel="true" data-operation-id="@operationIdValue" data-repository-url="@repositoryUrlValue">
-                            <h4 class="sr-only">Cloning status</h4>
-                            <div class="flex items-center justify-between gap-3">
-                                <p class="text-sm font-medium text-white" data-stage-label="true">@stageValue</p>
-                                <span class="rounded-full border border-indigo-500/50 bg-indigo-500/20 px-2 py-1 text-xs font-semibold text-indigo-200" data-status-badge="true">In progress</span>
-                            </div>
-                            <div aria-hidden="true" class="mt-4 space-y-3">
-                                <div class="overflow-hidden rounded-full bg-white/10">
-                                    <div data-progress-bar="true" style="width: @boundedProgressValue%;" class="h-2 rounded-full bg-indigo-500 transition-all duration-500 ease-out"></div>
-                                </div>
-                                <div class="flex items-center justify-between text-xs font-medium text-gray-400">
-                                    <span>Progress</span>
-                                    <span data-progress-value="true">@percentageValue%</span>
-                                </div>
-                            </div>
-                            <div class="mt-4 grid grid-cols-4 text-xs font-medium text-gray-400" data-progress-steps="true">
-                                <div class="text-indigo-400" data-step="queued">Queued</div>
-                                <div class="text-center text-gray-400" data-step="receiving">Downloading</div>
-                                <div class="text-center text-gray-400" data-step="resolving">Verifying</div>
-                                <div class="text-right text-gray-400" data-step="completed">Ready</div>
-                            </div>
-                            <p class="mt-4 text-xs text-gray-400" data-progress-message="true">
-                                @if (string.IsNullOrWhiteSpace(messageValue))
-                                {
-                                    @:We are cloning your repository. This usually takes less than a minute.
-                                }
-                                else
-                                {
-                                    @messageValue
-                                }
-                            </p>
-                        </div>
-                    }
-                </div>
-            }
-        </div>
+        <div class="mt-6 space-y-4" data-clone-status-list="true"></div>
+        <script type="application/json" id="clone-progress-data">@Html.Raw(initialCloneJson)</script>
     </div>
 
     <div class="rounded-2xl border border-white/10 bg-gray-900/70 p-8 shadow-inner shadow-black/30">
@@ -102,60 +49,11 @@
                 <h2 class="text-xl font-semibold text-white">Cloned repositories</h2>
                 <p class="text-sm text-gray-300">Select a repository to inspect its available branches.</p>
             </div>
-            <span class="text-sm text-gray-400">@Model.Repositories.Count repository@(Model.Repositories.Count == 1 ? string.Empty : "ies") available</span>
+            <span class="text-sm text-gray-400" data-repository-count="true" data-count="@Model.Repositories.Count">@Model.Repositories.Count repository@(Model.Repositories.Count == 1 ? string.Empty : "ies") available</span>
         </div>
-
-        @if (!Model.HasRepositories)
-        {
-            <div class="mt-8 rounded-xl border border-dashed border-white/10 bg-black/30 p-6 text-sm text-gray-300">
-                No repositories have been cloned yet. Use the form above to add the first repository.
-            </div>
-        }
-        else
-        {
-            <ul class="mt-8 space-y-4">
-                @foreach (MyApp.Models.Home.RepositoryListItemViewModel repository in Model.Repositories)
-                {
-                    <li class="rounded-xl border border-white/10 bg-black/40 p-6 text-sm text-gray-100">
-                        <details class="group" @(repository.HasBranches ? string.Empty : "open")>
-                            <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
-                                <div>
-                                    <h3 class="text-lg font-semibold text-white">@repository.Name</h3>
-                                    <p class="mt-1 truncate text-xs text-gray-400">@repository.RepositoryPath</p>
-                                    @if (!string.IsNullOrWhiteSpace(repository.RemoteUrl))
-                                    {
-                                        <p class="mt-1 text-xs text-indigo-200">@repository.RemoteUrl</p>
-                                    }
-                                </div>
-                                <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-gray-200">
-                                    <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
-                                    @repository.Branches.Count branch@(repository.Branches.Count == 1 ? string.Empty : "es")
-                                </span>
-                            </summary>
-                            <div class="mt-4 space-y-3">
-                                @if (!repository.HasBranches)
-                                {
-                                    <p class="rounded-lg border border-dashed border-white/10 bg-black/40 px-4 py-3 text-xs text-gray-400">
-                                        No local branches were found for this repository.
-                                    </p>
-                                }
-                                else
-                                {
-                                    <ul class="grid gap-3 sm:grid-cols-2">
-                                        @foreach (string branch in repository.Branches)
-                                        {
-                                            <li class="rounded-lg border border-white/10 bg-gray-900/60 px-4 py-3 text-xs text-gray-200">
-                                                <span class="font-semibold text-white">@branch</span>
-                                            </li>
-                                        }
-                                    </ul>
-                                }
-                            </div>
-                        </details>
-                    </li>
-                }
-            </ul>
-        }
+        <div class="mt-8" data-repository-list="true">
+            @await Html.PartialAsync("_RepositoryList", Model.Repositories)
+        </div>
     </div>
 </section>
 
@@ -166,13 +64,32 @@
             const cloneInput = document.querySelector('[data-clone-input="true"]');
             const cloneSubmit = document.querySelector('[data-clone-submit="true"]');
             const cloneError = document.querySelector('[data-clone-error="true"]');
-            const statusContainer = document.querySelector('[data-clone-status-container="true"]');
+            const cloneList = document.querySelector('[data-clone-status-list="true"]');
+            const repositoryList = document.querySelector('[data-repository-list="true"]');
+            const repositoryCountLabel = document.querySelector('[data-repository-count="true"]');
+            const initialDataElement = document.getElementById('clone-progress-data');
 
-            let pollTimeoutId = null;
-            let activeOperationId = null;
-            let reloadScheduled = false;
+            if (!cloneList) {
+                return;
+            }
 
-            initializeFromServer();
+            const operations = new Map();
+            let reloadTimerId = null;
+
+            if (repositoryCountLabel && repositoryCountLabel.dataset.count) {
+                const initialCount = parseInt(repositoryCountLabel.dataset.count || '0', 10) || 0;
+                repositoryCountLabel.textContent = formatRepositoryCount(initialCount);
+            }
+
+            const initialStates = parseInitialStates(initialDataElement);
+
+            if (initialStates.length > 0) {
+                initialStates.forEach(function (state) {
+                    upsertOperation(state);
+                });
+            }
+
+            refreshFromServer();
 
             if (cloneForm && cloneInput && cloneSubmit) {
                 cloneForm.addEventListener('submit', function (event) {
@@ -181,30 +98,24 @@
                 });
             }
 
-            function initializeFromServer() {
-                if (!statusContainer) {
-                    return;
+            function parseInitialStates(scriptElement) {
+                if (!scriptElement || !scriptElement.textContent) {
+                    return [];
                 }
 
-                const hasNotification = statusContainer.getAttribute('data-has-notification') === 'true';
-
-                if (!hasNotification) {
-                    statusContainer.innerHTML = '';
-                    return;
-                }
-
-                const state = buildStateFromDataset(statusContainer.dataset);
-                renderStatus(state);
-
-                if (state.progressActive && state.operationId) {
-                    startPolling(state.operationId);
+                try {
+                    const parsed = JSON.parse(scriptElement.textContent);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (error) {
+                    console.warn('Unable to parse initial clone state payload.', error);
+                    return [];
                 }
             }
 
             function beginCloneFromForm() {
-                const repositoryUrl = cloneInput.value.trim();
+                const repositoryUrl = cloneInput ? cloneInput.value.trim() : '';
 
-                if (repositoryUrl.length === 0) {
+                if (!repositoryUrl) {
                     showError('Please provide a repository URL.');
                     return;
                 }
@@ -241,18 +152,12 @@
                             throw new Error('Unexpected response from the server.');
                         }
 
-                        cloneInput.value = '';
-                        const state = convertApiResponseToState(data);
-                        renderStatus(state);
-
-                        if (state.progressActive && state.operationId) {
-                            startPolling(state.operationId);
-                        } else if (state.stateName === 'Completed' && !reloadScheduled) {
-                            reloadScheduled = true;
-                            setTimeout(function () {
-                                window.location.reload();
-                            }, 800);
+                        if (cloneInput) {
+                            cloneInput.value = '';
                         }
+
+                        const state = convertApiResponseToState(data);
+                        upsertOperation(state);
                     })
                     .catch(function (error) {
                         showError(error.message || 'Failed to queue repository clone.');
@@ -262,223 +167,310 @@
                     });
             }
 
-            function buildStateFromDataset(dataset) {
+            function refreshFromServer() {
+                fetch('/api/repositories/clone', { cache: 'no-store', credentials: 'same-origin' })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Unable to load repository clone status list.');
+                        }
+
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        if (!payload || !Array.isArray(payload)) {
+                            return;
+                        }
+
+                        payload.forEach(function (status) {
+                            const viewState = convertStatusToViewState(status);
+                            upsertOperation(viewState);
+                        });
+                    })
+                    .catch(function (error) {
+                        console.warn(error);
+                    });
+            }
+
+            function upsertOperation(state) {
+                if (!state) {
+                    return;
+                }
+
+                const key = determineOperationKey(state);
+
+                let operationEntry = operations.get(key);
+
+                if (!operationEntry) {
+                    operationEntry = createOperationEntry(state);
+                    operations.set(key, operationEntry);
+                    cloneList.append(operationEntry.card);
+                }
+
+                operationEntry.key = key;
+                bindClose(operationEntry);
+
+                updateOperationEntry(operationEntry, state);
+
+                if (state.isActive && reloadTimerId !== null) {
+                    window.clearTimeout(reloadTimerId);
+                    reloadTimerId = null;
+                }
+
+                if (state.operationId && state.operationId !== '00000000-0000-0000-0000-000000000000' && state.isActive) {
+                    schedulePoll(operationEntry, state.operationId);
+                } else {
+                    stopPolling(operationEntry);
+                }
+            }
+
+            function determineOperationKey(state) {
+                if (state.operationId && state.operationId !== '00000000-0000-0000-0000-000000000000') {
+                    return state.operationId;
+                }
+
+                if (state.repositoryUrl) {
+                    return 'static:' + state.repositoryUrl.toLowerCase();
+                }
+
+                return 'static:' + Math.random().toString(36).substring(2);
+            }
+
+            function createOperationEntry(state) {
+                const card = document.createElement('div');
+                card.className = 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200';
+                card.setAttribute('data-operation-card', 'true');
+
+                const header = document.createElement('div');
+                header.className = 'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between';
+                card.append(header);
+
+                const title = document.createElement('div');
+                title.className = 'flex-1 text-sm';
+                header.append(title);
+
+                const strong = document.createElement('span');
+                strong.className = 'font-semibold';
+                strong.textContent = 'Repository queued:';
+                title.append(strong);
+                title.append(' ');
+
+                const messageSpan = document.createElement('span');
+                messageSpan.setAttribute('data-notification', 'true');
+                title.append(messageSpan);
+
+                const badge = document.createElement('span');
+                badge.setAttribute('data-status-badge', 'true');
+                header.append(badge);
+
+                const closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.setAttribute('data-close', 'true');
+                closeButton.className = 'hidden rounded-md border border-white/10 bg-white/5 p-1 text-gray-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500';
+                closeButton.innerHTML = '<span class=\"sr-only\">Dismiss notification</span><svg viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\" class=\"size-4\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg>';
+                header.append(closeButton);
+
+                const progressContainer = document.createElement('div');
+                progressContainer.className = 'mt-4 space-y-3';
+                progressContainer.setAttribute('data-progress-container', 'true');
+                card.append(progressContainer);
+
+                const stageLabel = document.createElement('p');
+                stageLabel.setAttribute('data-stage-label', 'true');
+                stageLabel.className = 'text-sm font-medium text-white';
+                progressContainer.append(stageLabel);
+
+                const progressBackground = document.createElement('div');
+                progressBackground.className = 'overflow-hidden rounded-full bg-white/10';
+                progressContainer.append(progressBackground);
+
+                const progressBar = document.createElement('div');
+                progressBar.className = 'h-2 rounded-full bg-indigo-500 transition-all duration-500 ease-out';
+                progressBar.setAttribute('data-progress-bar', 'true');
+                progressBar.style.width = '1%';
+                progressBackground.append(progressBar);
+
+                const progressMeta = document.createElement('div');
+                progressMeta.className = 'flex items-center justify-between text-xs font-medium text-gray-400';
+                progressContainer.append(progressMeta);
+
+                const progressLabel = document.createElement('span');
+                progressLabel.textContent = 'Progress';
+                progressMeta.append(progressLabel);
+
+                const progressValue = document.createElement('span');
+                progressValue.setAttribute('data-progress-value', 'true');
+                progressValue.textContent = '0%';
+                progressMeta.append(progressValue);
+
+                const stageGrid = document.createElement('div');
+                stageGrid.className = 'mt-3 grid grid-cols-4 text-xs font-medium text-gray-400';
+                stageGrid.setAttribute('data-progress-steps', 'true');
+                progressContainer.append(stageGrid);
+
+                stageGrid.innerHTML = '' +
+                    '<div class="text-indigo-400" data-step="queued">Queued</div>' +
+                    '<div class="text-center text-gray-400" data-step="receiving">Downloading</div>' +
+                    '<div class="text-center text-gray-400" data-step="resolving">Verifying</div>' +
+                    '<div class="text-right text-gray-400" data-step="completed">Ready</div>';
+
+                const messageParagraph = document.createElement('p');
+                messageParagraph.className = 'mt-3 text-xs text-gray-400';
+                messageParagraph.setAttribute('data-progress-message', 'true');
+                progressContainer.append(messageParagraph);
+
+                const summaryContainer = document.createElement('div');
+                summaryContainer.className = 'mt-4 rounded-md border border-white/10 bg-black/30 px-3 py-2 text-xs text-gray-200';
+                summaryContainer.setAttribute('data-summary', 'true');
+                summaryContainer.style.display = 'none';
+                card.append(summaryContainer);
+
                 return {
-                    notification: dataset.notification || '',
-                    repositoryUrl: dataset.repositoryUrl || '',
-                    progressActive: dataset.progressActive === 'true',
-                    percentage: parseFloat(dataset.percentage || '0') || 0,
-                    stage: dataset.stage || '',
-                    message: dataset.message || '',
-                    stateName: dataset.state || 'Running',
-                    operationId: dataset.operationId || ''
+                    card: card,
+                    badge: badge,
+                    titleLabel: strong,
+                    messageSpan: messageSpan,
+                    progressContainer: progressContainer,
+                    stageLabel: stageLabel,
+                    progressBar: progressBar,
+                    progressValue: progressValue,
+                    messageParagraph: messageParagraph,
+                    stepsContainer: stageGrid,
+                    summaryContainer: summaryContainer,
+                    pollTimerId: null,
+                    closeButton: closeButton,
+                    isActive: state.isActive,
+                    state: state.state
                 };
             }
 
-            function renderStatus(state) {
-                if (!statusContainer) {
-                    return;
-                }
-
-                if (!state.notification) {
-                    statusContainer.innerHTML = '';
-                    statusContainer.setAttribute('data-has-notification', 'false');
-                    return;
-                }
-
+            function updateOperationEntry(entry, state) {
+                const wasActive = entry.isActive === true;
+                const normalizedStage = state.stage && state.stage.length > 0 ? state.stage : 'Processing repository...';
+                const normalizedMessage = state.message && state.message.length > 0 ? state.message : defaultMessageForState(state.state);
                 const boundedPercentage = clampPercentage(state.percentage);
-                const displayPercentage = boundedPercentage.toFixed(1);
-                const badgeInfo = computeBadgeInfo(state.stateName, state.progressActive);
-                const progressMarkup = state.progressActive
-                    ? buildProgressMarkup(state, boundedPercentage, displayPercentage, badgeInfo)
-                    : '';
+                const displayPercentage = boundedPercentage.toFixed(1) + '%';
+                const info = computeBadgeInfo(state.state, state.isActive);
 
-                const cardHtml = [
-                    '<div class="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200" data-clone-card="true">',
-                    '  <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">',
-                    '    <div>',
-                    '      <span class="font-semibold">', escapeHtml(state.progressActive ? 'Repository queued:' : 'Repository update:'), '</span> ', escapeHtml(state.notification),
-                    '    </div>',
-                    state.progressActive ? '' : '    <div>' + badgeInfo.html + '</div>',
-                    '  </div>',
-                    progressMarkup,
-                    !state.progressActive && state.message
-                        ? '  <p class="mt-4 text-xs text-gray-400">' + escapeHtml(state.message) + '</p>'
-                        : '',
-                    '</div>'
-                ].join('');
+                entry.card.className = cardClassForState(state.state);
+                entry.titleLabel.textContent = headingForState(state.state, state.isActive);
+                entry.messageSpan.textContent = state.notification || state.repositoryUrl || 'Repository clone';
+                entry.badge.textContent = info.badgeText;
+                entry.badge.className = info.badgeClass;
 
-                statusContainer.innerHTML = cardHtml;
-                statusContainer.setAttribute('data-has-notification', 'true');
-                statusContainer.setAttribute('data-notification', state.notification);
-                statusContainer.setAttribute('data-progress-active', state.progressActive ? 'true' : 'false');
-                statusContainer.setAttribute('data-operation-id', state.operationId || '');
-                statusContainer.setAttribute('data-percentage', state.percentage.toFixed(1));
-                statusContainer.setAttribute('data-stage', state.stage || '');
-                statusContainer.setAttribute('data-message', state.message || '');
-                statusContainer.setAttribute('data-state', state.stateName || 'Running');
-                statusContainer.setAttribute('data-repository-url', state.repositoryUrl || '');
-
-                if (state.progressActive) {
-                    const panel = statusContainer.querySelector('[data-clone-panel="true"]');
-
-                    if (panel) {
-                        updateProgressVisuals(panel, state.percentage, state.stage, state.message, state.stateName);
+                if (state.isActive) {
+                    entry.progressContainer.style.display = '';
+                    entry.summaryContainer.style.display = 'none';
+                    if (entry.closeButton) {
+                        entry.closeButton.classList.add('hidden');
                     }
-                }
-            }
-
-            function buildProgressMarkup(state, boundedPercentage, displayPercentage, badgeInfo) {
-                const stageText = state.stage && state.stage.length > 0 ? state.stage : 'Processing repository...';
-                const defaultMessage = 'We are cloning your repository. This usually takes less than a minute.';
-                const messageText = state.message && state.message.length > 0 ? escapeHtml(state.message) : defaultMessage;
-                const progressWidth = Math.max(1, Math.min(boundedPercentage, 100)).toFixed(1);
-
-                return [
-                    '<div class="mt-6 rounded-lg border border-white/10 bg-black/40 p-4 text-left text-gray-200" data-clone-panel="true" data-operation-id="', escapeHtml(state.operationId || ''), '" data-repository-url="', escapeHtml(state.repositoryUrl || ''), '">',
-                    '  <h4 class="sr-only">Cloning status</h4>',
-                    '  <div class="flex items-center justify-between gap-3">',
-                    '    <p class="text-sm font-medium text-white" data-stage-label="true">', escapeHtml(stageText), '</p>',
-                    '    ', badgeInfo.html,
-                    '  </div>',
-                    '  <div aria-hidden="true" class="mt-4 space-y-3">',
-                    '    <div class="overflow-hidden rounded-full bg-white/10">',
-                    '      <div data-progress-bar="true" style="width: ', progressWidth, '%;" class="h-2 rounded-full ', badgeInfo.progressClass, ' transition-all duration-500 ease-out"></div>',
-                    '    </div>',
-                    '    <div class="flex items-center justify-between text-xs font-medium text-gray-400">',
-                    '      <span>Progress</span>',
-                    '      <span data-progress-value="true">', displayPercentage, '%</span>',
-                    '    </div>',
-                    '  </div>',
-                    '  <div class="mt-4 grid grid-cols-4 text-xs font-medium text-gray-400" data-progress-steps="true">',
-                    '    <div class="text-indigo-400" data-step="queued">Queued</div>',
-                    '    <div class="text-center text-gray-400" data-step="receiving">Downloading</div>',
-                    '    <div class="text-center text-gray-400" data-step="resolving">Verifying</div>',
-                    '    <div class="text-right text-gray-400" data-step="completed">Ready</div>',
-                    '  </div>',
-                    '  <p class="mt-4 text-xs text-gray-400" data-progress-message="true">', messageText, '</p>',
-                    '</div>'
-                ].join('');
-            }
-
-            function updateProgressVisuals(panel, percentage, stageText, messageText, stateName) {
-                const progressElement = panel.querySelector('[data-progress-bar="true"]');
-                const valueElement = panel.querySelector('[data-progress-value="true"]');
-                const stageLabel = panel.querySelector('[data-stage-label="true"]');
-                const messageElement = panel.querySelector('[data-progress-message="true"]');
-                const stepsElement = panel.querySelector('[data-progress-steps="true"]');
-                const badgeElement = panel.querySelector('[data-status-badge="true"]');
-
-                const info = computeBadgeInfo(stateName, true);
-                const bounded = clampPercentage(percentage);
-                const width = Math.max(1, Math.min(bounded, 100)).toFixed(1);
-                const display = bounded.toFixed(1);
-                const safeStage = stageText && stageText.length > 0 ? stageText : 'Processing repository...';
-
-                if (progressElement) {
-                    progressElement.style.width = width + '%';
-                    progressElement.classList.remove('bg-indigo-500', 'bg-emerald-500', 'bg-red-500');
-                    progressElement.classList.add(info.progressClass);
-                }
-
-                if (valueElement) {
-                    valueElement.textContent = display + '%';
-                }
-
-                if (stageLabel) {
-                    stageLabel.textContent = safeStage;
-                }
-
-                if (messageElement) {
-                    if (messageText && messageText.length > 0) {
-                        messageElement.textContent = messageText;
-                    } else if ((stateName || '').toLowerCase() === 'failed') {
-                        messageElement.textContent = 'Repository clone failed. Please verify the URL or credentials.';
-                    } else if ((stateName || '').toLowerCase() === 'completed') {
-                        messageElement.textContent = 'Clone completed successfully. Preparing the repository list...';
-                    } else {
-                        messageElement.textContent = 'We are cloning your repository. This usually takes less than a minute.';
+                    entry.stageLabel.textContent = normalizedStage;
+                    entry.progressBar.style.width = Math.max(1, Math.min(boundedPercentage, 100)).toFixed(1) + '%';
+                    entry.progressBar.classList.remove('bg-indigo-500', 'bg-emerald-500', 'bg-red-500');
+                    entry.progressBar.classList.add(info.progressClass);
+                    entry.progressValue.textContent = displayPercentage;
+                    entry.messageParagraph.textContent = normalizedMessage;
+                    updateSteps(entry.stepsContainer, normalizedStage, state.state);
+                } else {
+                    entry.progressContainer.style.display = 'none';
+                    entry.summaryContainer.style.display = '';
+                    entry.summaryContainer.textContent = finalMessageForState(state.state, state.message);
+                    if (entry.closeButton) {
+                        entry.closeButton.classList.remove('hidden');
+                    }
+                    if (state.state === 'Completed') {
+                        scheduleRepositoryRefresh();
                     }
                 }
 
-                if (badgeElement) {
-                    badgeElement.textContent = info.badgeText;
-                    badgeElement.className = info.badgeClass;
-                }
+                entry.isActive = state.isActive;
+                entry.state = state.state;
 
-                if (stepsElement) {
-                    updateSteps(stepsElement, safeStage, stateName);
+                if (wasActive && !entry.isActive) {
+                    scheduleRepositoryRefresh();
                 }
             }
 
-            function updateSteps(stepsContainer, stageText, stateName) {
-                const normalizedStage = (stageText || '').toLowerCase();
-                const normalizedState = (stateName || '').toLowerCase();
-                const stepElements = stepsContainer.querySelectorAll('[data-step]');
+            function defaultMessageForState(stateName) {
+                const normalized = (stateName || '').toLowerCase();
 
-                stepElements.forEach(function (element) {
-                    const step = element.getAttribute('data-step');
+                if (normalized === 'failed') {
+                    return 'Repository clone failed. Please verify the URL or credentials.';
+                }
 
-                    if (!step) {
-                        return;
-                    }
+                if (normalized === 'completed') {
+                    return 'Clone completed successfully. Preparing the repository list...';
+                }
 
-                    let active = false;
-
-                    switch (step) {
-                        case 'queued':
-                            active = true;
-                            break;
-                        case 'receiving':
-                            active = normalizedStage.indexOf('receiving') >= 0 || normalizedStage.indexOf('transfer') >= 0;
-                            break;
-                        case 'resolving':
-                            active = normalizedStage.indexOf('resolving') >= 0 || normalizedStage.indexOf('index') >= 0;
-                            break;
-                        case 'completed':
-                            active = normalizedStage.indexOf('complete') >= 0 || normalizedStage.indexOf('ready') >= 0 || normalizedState === 'completed';
-                            break;
-                        default:
-                            active = false;
-                            break;
-                    }
-
-                    element.classList.remove('text-indigo-400', 'text-emerald-400');
-
-                    if (active) {
-                        element.classList.remove('text-gray-400');
-
-                        if (step === 'completed' && normalizedState === 'completed') {
-                            element.classList.add('text-emerald-400');
-                        } else {
-                            element.classList.add('text-indigo-400');
-                        }
-                    } else {
-                        element.classList.add('text-gray-400');
-                    }
-                });
+                return 'We are cloning your repository. This usually takes less than a minute.';
             }
 
-            function startPolling(operationId) {
-                if (!operationId || operationId === '00000000-0000-0000-0000-000000000000') {
-                    return;
+            function headingForState(stateName, isActive) {
+                const normalized = (stateName || '').toLowerCase();
+
+                if (normalized === 'failed') {
+                    return 'Repository clone failed:';
                 }
 
-                activeOperationId = operationId;
-
-                if (pollTimeoutId !== null) {
-                    clearTimeout(pollTimeoutId);
+                if (normalized === 'completed') {
+                    return 'Repository cloned:';
                 }
 
-                pollTimeoutId = setTimeout(pollStatus, 1200);
+                if (normalized === 'running' && isActive) {
+                    return 'Repository cloning:';
+                }
+
+                return 'Repository queued:';
             }
 
-            function pollStatus() {
-                if (!activeOperationId) {
-                    return;
+            function cardClassForState(stateName) {
+                const normalized = (stateName || '').toLowerCase();
+
+                if (normalized === 'failed') {
+                    return 'rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100';
                 }
 
-                fetch('/api/repositories/clone/' + activeOperationId, { cache: 'no-store', credentials: 'same-origin' })
+                if (normalized === 'completed') {
+                    return 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200';
+                }
+
+                return 'rounded-lg border border-indigo-500/40 bg-indigo-500/10 p-4 text-sm text-indigo-100';
+            }
+
+            function finalMessageForState(stateName, message) {
+                if (message && message.length > 0) {
+                    return message;
+                }
+
+                const normalized = (stateName || '').toLowerCase();
+
+                if (normalized === 'completed') {
+                    return 'Clone completed successfully.';
+                }
+
+                if (normalized === 'failed') {
+                    return 'Clone failed. Please review the repository URL or credentials.';
+                }
+
+                return 'Clone status updated.';
+            }
+
+            function schedulePoll(entry, operationId) {
+                stopPolling(entry);
+
+                entry.pollTimerId = window.setTimeout(function () {
+                    pollOperation(entry, operationId);
+                }, 1500);
+            }
+
+            function stopPolling(entry) {
+                if (entry.pollTimerId !== null) {
+                    window.clearTimeout(entry.pollTimerId);
+                    entry.pollTimerId = null;
+                }
+            }
+
+            function pollOperation(entry, operationId) {
+                fetch('/api/repositories/clone/' + operationId, { cache: 'no-store', credentials: 'same-origin' })
                     .then(function (response) {
                         if (!response.ok) {
                             throw new Error('Status response not available.');
@@ -491,53 +483,13 @@
                             return;
                         }
 
-                        const panel = statusContainer ? statusContainer.querySelector('[data-clone-panel="true"]') : null;
-                        const percentage = typeof payload.percentage === 'number'
-                            ? payload.percentage
-                            : parseFloat(payload.percentage || '0');
-                        const stageText = payload.stage || '';
-                        const messageText = payload.message || '';
-                        const stateName = payload.state || 'Running';
-
-                        if (panel) {
-                            updateProgressVisuals(panel, percentage, stageText, messageText, stateName);
-                        }
-
-                        statusContainer.setAttribute('data-percentage', (parseFloat(percentage) || 0).toFixed(1));
-                        statusContainer.setAttribute('data-stage', stageText);
-                        statusContainer.setAttribute('data-message', messageText);
-                        statusContainer.setAttribute('data-state', stateName);
-
-                        const normalizedState = stateName.toLowerCase();
-
-                        if (normalizedState === 'completed') {
-                            activeOperationId = null;
-
-                            if (!reloadScheduled) {
-                                reloadScheduled = true;
-                                setTimeout(function () {
-                                    window.location.reload();
-                                }, 1200);
-                            }
-                        } else if (normalizedState === 'failed') {
-                            activeOperationId = null;
-                        } else {
-                            scheduleNextPoll(2000);
-                        }
+                        const viewState = convertStatusToViewState(payload);
+                        upsertOperation(viewState);
                     })
                     .catch(function () {
-                        if (activeOperationId) {
-                            scheduleNextPoll(4000);
-                        }
+                        // retry with back-off
+                        schedulePoll(entry, operationId);
                     });
-            }
-
-            function scheduleNextPoll(delayMilliseconds) {
-                if (pollTimeoutId !== null) {
-                    clearTimeout(pollTimeoutId);
-                }
-
-                pollTimeoutId = setTimeout(pollStatus, delayMilliseconds);
             }
 
             function showError(message) {
@@ -560,48 +512,193 @@
                 }
             }
 
-            function convertApiResponseToState(data) {
-                const status = data.status || null;
-                const operationId = data.operationId && data.operationId !== '00000000-0000-0000-0000-000000000000'
-                    ? data.operationId
-                    : '';
+            function updateSteps(container, stageText, stateName) {
+                if (!container) {
+                    return;
+                }
+
+                const normalizedStage = (stageText || '').toLowerCase();
+                const normalizedState = (stateName || '').toLowerCase();
+                const stepElements = container.querySelectorAll('[data-step]');
+
+                stepElements.forEach(function (element) {
+                    const step = element.getAttribute('data-step');
+
+                    if (!step) {
+                        return;
+                    }
+
+                    let active = false;
+
+                    switch (step) {
+                        case 'queued':
+                            active = true;
+                            break;
+                        case 'receiving':
+                            active = normalizedStage.includes('receiving') || normalizedStage.includes('transfer');
+                            break;
+                        case 'resolving':
+                            active = normalizedStage.includes('resolving') || normalizedStage.includes('index');
+                            break;
+                        case 'completed':
+                            active = normalizedStage.includes('complete') || normalizedStage.includes('ready') || normalizedState === 'completed';
+                            break;
+                        default:
+                            active = false;
+                            break;
+                    }
+
+                    element.classList.remove('text-indigo-400', 'text-emerald-400');
+
+                    if (active) {
+                        element.classList.remove('text-gray-400');
+
+                        if (step === 'completed' && normalizedState === 'completed') {
+                            element.classList.add('text-emerald-400');
+                        } else {
+                            element.classList.add('text-indigo-400');
+                        }
+                    } else {
+                        element.classList.add('text-gray-400');
+                    }
+                });
+            }
+
+            function convertApiResponseToState(response) {
+                const status = response.status || null;
+                const operationId = status && status.operationId ? status.operationId : response.operationId || '';
                 const percentage = status && typeof status.percentage === 'number'
                     ? status.percentage
-                    : status && status.percentage
-                        ? parseFloat(status.percentage)
-                        : 0;
-                const stateName = status && status.state
-                    ? status.state
-                    : (data.alreadyCloned ? 'Completed' : (operationId ? 'Running' : 'Completed'));
+                    : (status && status.percentage ? parseFloat(status.percentage) : 0);
                 const stage = status && status.stage ? status.stage : '';
                 const message = status && status.message ? status.message : '';
-                const progressActive = operationId.length > 0 && stateName !== 'Completed' && stateName !== 'Failed';
+                const stateName = status && status.state ? status.state : (response.alreadyCloned ? 'Completed' : 'Queued');
+                const notification = response.notification || response.repositoryUrl || 'Repository clone';
 
                 return {
-                    notification: data.notification || '',
-                    repositoryUrl: data.repositoryUrl || '',
-                    progressActive: progressActive,
-                    percentage: percentage || 0,
+                    operationId: operationId,
+                    repositoryUrl: response.repositoryUrl || '',
+                    notification: notification,
+                    percentage: percentage,
                     stage: stage,
                     message: message,
-                    stateName: stateName,
-                    operationId: operationId
+                    state: stateName,
+                    isActive: stateName === 'Queued' || stateName === 'Running'
                 };
             }
 
-            function computeBadgeInfo(stateName, progressActive) {
+            function convertStatusToViewState(status) {
+                const stateName = status.state || 'Queued';
+
+                return {
+                    operationId: status.operationId || '',
+                    repositoryUrl: status.repositoryUrl || '',
+                    notification: status.repositoryUrl || 'Repository clone',
+                    percentage: typeof status.percentage === 'number' ? status.percentage : parseFloat(status.percentage || '0') || 0,
+                    stage: status.stage || '',
+                    message: status.message || '',
+                    state: stateName,
+                    isActive: stateName === 'Queued' || stateName === 'Running'
+                };
+            }
+
+            function refreshRepositories() {
+                if (!repositoryList) {
+                    return;
+                }
+
+                fetch('/Home/RepositoryList', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Unable to refresh repository list.');
+                        }
+
+                        return response.text();
+                    })
+                    .then(function (html) {
+                        const parser = new DOMParser();
+                        const documentFragment = parser.parseFromString(html, 'text/html');
+                        const payload = documentFragment.querySelector('[data-repository-payload]');
+
+                        if (!payload) {
+                            return;
+                        }
+
+                        repositoryList.innerHTML = payload.innerHTML;
+
+                        const countAttribute = payload.getAttribute('data-count');
+                        const repositoryCount = parseInt(countAttribute || '0', 10) || 0;
+
+                        if (repositoryCountLabel) {
+                            repositoryCountLabel.textContent = formatRepositoryCount(repositoryCount);
+                            repositoryCountLabel.dataset.count = repositoryCount.toString();
+                        }
+                    })
+                    .catch(function (error) {
+                        console.warn(error);
+                    });
+            }
+
+            function bindClose(entry) {
+                if (!entry.closeButton || entry.closeButton.dataset.bound === 'true') {
+                    return;
+                }
+
+                entry.closeButton.dataset.bound = 'true';
+                entry.closeButton.addEventListener('click', function () {
+                    removeOperationEntry(entry);
+                });
+            }
+
+            function removeOperationEntry(entry) {
+                if (!entry) {
+                    return;
+                }
+
+                if (entry.card && entry.card.parentElement) {
+                    entry.card.parentElement.removeChild(entry.card);
+                }
+
+                if (entry.key && operations.has(entry.key)) {
+                    operations.delete(entry.key);
+                }
+
+                scheduleRepositoryRefresh();
+            }
+
+            function formatRepositoryCount(count) {
+                return count + ' repository' + (count === 1 ? '' : 'ies') + ' available';
+            }
+
+            function scheduleRepositoryRefresh() {
+                if (reloadTimerId !== null) {
+                    return;
+                }
+
+                reloadTimerId = window.setTimeout(function () {
+                    refreshRepositories();
+                    reloadTimerId = null;
+                }, 600);
+            }
+
+            function computeBadgeInfo(stateName, isActive) {
                 const normalized = (stateName || '').toLowerCase();
                 let badgeText = 'In progress';
-                let badgeClass = 'rounded-full border border-indigo-500/50 bg-indigo-500/20 px-2 py-1 text-xs font-semibold text-indigo-200';
+                let badgeClass = 'inline-flex items-center gap-2 rounded-full border border-indigo-500/40 bg-indigo-500/20 px-2 py-1 text-xs font-semibold text-indigo-200';
                 let progressClass = 'bg-indigo-500';
 
                 if (normalized === 'completed') {
-                    badgeText = progressActive ? 'Completed' : 'Ready';
-                    badgeClass = 'rounded-full border border-emerald-500/50 bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200';
+                    badgeText = isActive ? 'Completed' : 'Ready';
+                    badgeClass = 'inline-flex items-center gap-2 rounded-full border border-emerald-500/50 bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200';
                     progressClass = 'bg-emerald-500';
                 } else if (normalized === 'failed') {
                     badgeText = 'Failed';
-                    badgeClass = 'rounded-full border border-red-500/50 bg-red-500/20 px-2 py-1 text-xs font-semibold text-red-200';
+                    badgeClass = 'inline-flex items-center gap-2 rounded-full border border-red-500/50 bg-red-500/20 px-2 py-1 text-xs font-semibold text-red-200';
                     progressClass = 'bg-red-500';
                 } else if (normalized === 'queued') {
                     badgeText = 'Queued';
@@ -610,22 +707,8 @@
                 return {
                     badgeText: badgeText,
                     badgeClass: badgeClass,
-                    progressClass: progressClass,
-                    html: '<span class="' + badgeClass + '" data-status-badge="true">' + escapeHtml(badgeText) + '</span>'
+                    progressClass: progressClass
                 };
-            }
-
-            function escapeHtml(value) {
-                if (value === null || value === undefined) {
-                    return '';
-                }
-
-                return String(value)
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/\"/g, '&quot;')
-                    .replace(/'/g, '&#39;');
             }
 
             function clampPercentage(value) {

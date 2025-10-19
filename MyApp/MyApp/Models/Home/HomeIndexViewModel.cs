@@ -6,7 +6,7 @@ namespace MyApp.Models.Home
 {
     public sealed class HomeIndexViewModel
     {
-        public HomeIndexViewModel(IReadOnlyCollection<RepositoryListItemViewModel> repositories, AddRepositoryRequest addRepository, string? notification, CloneProgressViewModel cloneProgress)
+        public HomeIndexViewModel(IReadOnlyCollection<RepositoryListItemViewModel> repositories, AddRepositoryRequest addRepository, string? notification, IReadOnlyCollection<CloneProgressViewModel> cloneProgressItems)
         {
             if (repositories == null)
             {
@@ -18,15 +18,15 @@ namespace MyApp.Models.Home
                 throw new ArgumentNullException(nameof(addRepository));
             }
 
-            if (cloneProgress == null)
+            if (cloneProgressItems == null)
             {
-                throw new ArgumentNullException(nameof(cloneProgress));
+                throw new ArgumentNullException(nameof(cloneProgressItems));
             }
 
             Repositories = repositories.ToList();
             AddRepository = addRepository;
             Notification = notification;
-            CloneProgress = cloneProgress;
+            CloneProgressItems = cloneProgressItems.ToList();
         }
 
         public IReadOnlyCollection<RepositoryListItemViewModel> Repositories { get; }
@@ -35,13 +35,13 @@ namespace MyApp.Models.Home
 
         public string? Notification { get; }
 
-        public CloneProgressViewModel CloneProgress { get; }
+        public IReadOnlyCollection<CloneProgressViewModel> CloneProgressItems { get; }
 
         public bool IsCloneInProgress
         {
             get
             {
-                return CloneProgress.IsActive;
+                return CloneProgressItems.Any(item => item.IsActive);
             }
         }
 

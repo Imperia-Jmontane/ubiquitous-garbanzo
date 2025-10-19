@@ -86,7 +86,10 @@ namespace MyApp.Infrastructure.Git
 
             foreach (KeyValuePair<Guid, CloneOperationState> pair in _operations)
             {
-                statuses.Add(pair.Value.ToStatus());
+                if (pair.Value.State == RepositoryCloneState.Queued || pair.Value.State == RepositoryCloneState.Running)
+                {
+                    statuses.Add(pair.Value.ToStatus());
+                }
             }
 
             return statuses;

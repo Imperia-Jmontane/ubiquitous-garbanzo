@@ -1,20 +1,20 @@
 using System;
+using MyApp.Application.Abstractions;
 
 namespace MyApp.Models.Home
 {
     public sealed class CloneProgressViewModel
     {
-        public CloneProgressViewModel(bool isActive, Guid operationId, string repositoryUrl, double percentage, string stage, string message)
+        public CloneProgressViewModel(Guid operationId, string repositoryUrl, double percentage, string stage, string message, RepositoryCloneState state, DateTimeOffset lastUpdatedUtc)
         {
-            IsActive = isActive;
             OperationId = operationId;
             RepositoryUrl = repositoryUrl ?? string.Empty;
             Percentage = percentage;
             Stage = stage ?? string.Empty;
             Message = message ?? string.Empty;
+            State = state;
+            LastUpdatedUtc = lastUpdatedUtc;
         }
-
-        public bool IsActive { get; }
 
         public Guid OperationId { get; }
 
@@ -26,9 +26,16 @@ namespace MyApp.Models.Home
 
         public string Message { get; }
 
-        public static CloneProgressViewModel CreateInactive()
+        public RepositoryCloneState State { get; }
+
+        public DateTimeOffset LastUpdatedUtc { get; }
+
+        public bool IsActive
         {
-            return new CloneProgressViewModel(false, Guid.Empty, string.Empty, 0.0, string.Empty, string.Empty);
+            get
+            {
+                return State == RepositoryCloneState.Queued || State == RepositoryCloneState.Running;
+            }
         }
     }
 }

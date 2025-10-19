@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Application.Abstractions;
 
@@ -89,6 +90,20 @@ namespace MyApp.Controllers.Api
             }
 
             return Accepted(response);
+        }
+
+        [HttpGet]
+        public ActionResult<IReadOnlyCollection<RepositoryCloneStatusResponse>> GetActiveClones()
+        {
+            IReadOnlyCollection<RepositoryCloneStatus> statuses = _cloneCoordinator.GetActiveClones();
+            List<RepositoryCloneStatusResponse> responses = new List<RepositoryCloneStatusResponse>();
+
+            foreach (RepositoryCloneStatus status in statuses)
+            {
+                responses.Add(CreateStatusResponse(status));
+            }
+
+            return Ok(responses);
         }
 
         [HttpGet("{operationId:guid}")]

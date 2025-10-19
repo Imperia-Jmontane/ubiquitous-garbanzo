@@ -1,0 +1,56 @@
+@using System.Linq
+@model IReadOnlyCollection<MyApp.Models.Home.RepositoryListItemViewModel>
+
+<div data-repository-payload="true" data-count="@Model.Count">
+    @if (!Model.Any())
+    {
+        <div class="mt-8 rounded-xl border border-dashed border-white/10 bg-black/30 p-6 text-sm text-gray-300" data-empty-state="true">
+            No repositories have been cloned yet. Use the form above to add the first repository.
+        </div>
+    }
+    else
+    {
+        <ul class="mt-8 space-y-4" data-repository-items="true">
+            @foreach (MyApp.Models.Home.RepositoryListItemViewModel repository in Model)
+            {
+                <li class="rounded-xl border border-white/10 bg-black/40 p-6 text-sm text-gray-100">
+                    <details class="group" @(repository.HasBranches ? string.Empty : "open")>
+                        <summary class="flex cursor-pointer list-none items-center justify-between gap-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-white">@repository.Name</h3>
+                                <p class="mt-1 truncate text-xs text-gray-400">@repository.RepositoryPath</p>
+                                @if (!string.IsNullOrWhiteSpace(repository.RemoteUrl))
+                                {
+                                    <p class="mt-1 text-xs text-indigo-200">@repository.RemoteUrl</p>
+                                }
+                            </div>
+                            <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-gray-200">
+                                <span class="h-2 w-2 rounded-full bg-indigo-400"></span>
+                                @repository.Branches.Count branch@(repository.Branches.Count == 1 ? string.Empty : "es")
+                            </span>
+                        </summary>
+                        <div class="mt-4 space-y-3">
+                            @if (!repository.HasBranches)
+                            {
+                                <p class="rounded-lg border border-dashed border-white/10 bg-black/40 px-4 py-3 text-xs text-gray-400">
+                                    No local branches were found for this repository.
+                                </p>
+                            }
+                            else
+                            {
+                                <ul class="grid gap-3 sm:grid-cols-2">
+                                    @foreach (string branch in repository.Branches)
+                                    {
+                                        <li class="rounded-lg border border-white/10 bg-gray-900/60 px-4 py-3 text-xs text-gray-200">
+                                            <span class="font-semibold text-white">@branch</span>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+                    </details>
+                </li>
+            }
+        </ul>
+    }
+</div>
