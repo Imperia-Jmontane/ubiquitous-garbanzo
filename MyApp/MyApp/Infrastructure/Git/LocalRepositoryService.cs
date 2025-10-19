@@ -3,6 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -80,6 +84,18 @@ namespace MyApp.Infrastructure.Git
 
         public CloneRepositoryResult CloneRepository(string repositoryUrl)
         {
+            NullRepositoryCloneProgress progress = new NullRepositoryCloneProgress();
+            return CloneRepositoryInternalAsync(repositoryUrl, progress, CancellationToken.None).GetAwaiter().GetResult();
+        }
+
+        public Task<CloneRepositoryResult> CloneRepositoryAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
+        {
+            IProgress<RepositoryCloneProgress> safeProgress = progress ?? new NullRepositoryCloneProgress();
+            return CloneRepositoryInternalAsync(repositoryUrl, safeProgress, cancellationToken);
+        }
+
+        private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
+        {
             if (string.IsNullOrWhiteSpace(repositoryUrl))
             {
                 throw new ArgumentException("The repository URL must be provided.", nameof(repositoryUrl));
@@ -119,11 +135,27 @@ namespace MyApp.Infrastructure.Git
 
             if (Directory.Exists(repositoryPath))
             {
+                RepositoryCloneProgress alreadyProgress = new RepositoryCloneProgress(100.0, "Repository already cloned.", string.Empty);
+                progress.Report(alreadyProgress);
                 return new CloneRepositoryResult(true, true, repositoryPath, "Repository already cloned.");
             }
 
-            string[] arguments = new[] { "clone", repositoryUrl, repositoryPath };
-            CommandResult result = ExecuteGitCommand(_options.RootPath, arguments, TimeSpan.FromMinutes(5));
+            RepositoryCloneProgress startProgress = new RepositoryCloneProgress(0.0, "Starting clone", string.Empty);
+            progress.Report(startProgress);
+
+            CommandResult result;
+
+            try
+            {
+                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                TryDeleteDirectory(repositoryPath);
+                string cancelledMessage = "Repository clone was canceled.";
+                _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
+                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage);
+            }
 
             if (!result.Succeeded)
             {
@@ -134,7 +166,150 @@ namespace MyApp.Infrastructure.Git
                 return new CloneRepositoryResult(false, false, string.Empty, message);
             }
 
+            RepositoryCloneProgress completedProgress = new RepositoryCloneProgress(100.0, "Completed", string.Empty);
+            progress.Report(completedProgress);
             return new CloneRepositoryResult(true, false, repositoryPath, string.Empty);
+        }
+
+        private static async Task<CommandResult> ExecuteGitCloneAsync(string workingDirectory, string repositoryUrl, string repositoryPath, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = workingDirectory,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
+            startInfo.Environment["GIT_ASKPASS"] = "echo";
+            startInfo.Environment["SSH_ASKPASS"] = "echo";
+
+            startInfo.ArgumentList.Add("clone");
+            startInfo.ArgumentList.Add("--progress");
+            startInfo.ArgumentList.Add(repositoryUrl);
+            startInfo.ArgumentList.Add(repositoryPath);
+
+            StringBuilder standardOutputBuilder = new StringBuilder();
+            StringBuilder standardErrorBuilder = new StringBuilder();
+            double lastPercentage = 0.0;
+
+            using (Process process = new Process())
+            {
+                process.StartInfo = startInfo;
+
+                process.OutputDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                    {
+                        standardOutputBuilder.AppendLine(args.Data);
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                    {
+                        string trimmed = args.Data.Trim();
+                        standardErrorBuilder.AppendLine(args.Data);
+
+                        if (progress != null)
+                        {
+                            string stage;
+                            double? percentage;
+
+                            if (TryParseCloneProgress(trimmed, out stage, out percentage))
+                            {
+                                if (percentage.HasValue)
+                                {
+                                    lastPercentage = percentage.Value;
+                                }
+
+                                RepositoryCloneProgress update = new RepositoryCloneProgress(lastPercentage, stage, trimmed);
+                                progress.Report(update);
+                            }
+                        }
+                    }
+                };
+
+                using (cancellationToken.Register(() =>
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            TryTerminateProcess(process);
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+                    catch (NotSupportedException)
+                    {
+                    }
+                }))
+                {
+                    bool started = process.Start();
+
+                    if (!started)
+                    {
+                        return new CommandResult(false, string.Empty, "Unable to start git process.");
+                    }
+
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                    process.WaitForExit();
+                }
+
+                string standardOutput = standardOutputBuilder.ToString();
+                string standardError = standardErrorBuilder.ToString();
+                bool success = process.ExitCode == 0;
+
+                return new CommandResult(success, standardOutput, standardError);
+            }
+        }
+
+        private static bool TryParseCloneProgress(string line, out string stage, out double? percentage)
+        {
+            stage = string.Empty;
+            percentage = null;
+
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return false;
+            }
+
+            string trimmedLine = line.Trim();
+
+            Match match = Regex.Match(trimmedLine, @"^(?<stage>[A-Za-z ]+):\s+(?<percent>\d+)%");
+
+            if (match.Success)
+            {
+                stage = match.Groups["stage"].Value.Trim();
+                string percentText = match.Groups["percent"].Value;
+                double parsed;
+
+                if (double.TryParse(percentText, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
+                {
+                    percentage = parsed;
+                }
+
+                return true;
+            }
+
+            if (trimmedLine.EndsWith("done.", StringComparison.OrdinalIgnoreCase))
+            {
+                stage = trimmedLine;
+                percentage = 100.0;
+                return true;
+            }
+
+            stage = trimmedLine;
+            return true;
         }
 
         private static IReadOnlyCollection<string> GetBranches(string repositoryPath)
@@ -326,6 +501,13 @@ namespace MyApp.Infrastructure.Git
             {
             }
             catch (NotSupportedException)
+            {
+            }
+        }
+
+        private sealed class NullRepositoryCloneProgress : IProgress<RepositoryCloneProgress>
+        {
+            public void Report(RepositoryCloneProgress value)
             {
             }
         }

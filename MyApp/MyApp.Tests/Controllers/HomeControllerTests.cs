@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
@@ -26,9 +27,10 @@ namespace MyApp.Tests.Controllers
 
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(repositories);
+            Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
-            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object);
+            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
 
             IActionResult result = controller.Index();
 
@@ -45,9 +47,10 @@ namespace MyApp.Tests.Controllers
         {
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(new List<LocalRepository>());
+            Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
-            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object);
+            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
             controller.ModelState.AddModelError("RepositoryUrl", "Required");
 
             AddRepositoryRequest request = new AddRepositoryRequest();
@@ -64,11 +67,14 @@ namespace MyApp.Tests.Controllers
         {
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(new List<LocalRepository>());
-            CloneRepositoryResult cloneResult = new CloneRepositoryResult(true, false, "/tmp/ubiquitous-garbanzo", string.Empty);
-            repositoryServiceMock.Setup(service => service.CloneRepository(It.IsAny<string>())).Returns(cloneResult);
+            Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
-            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object);
+            Guid operationId = Guid.NewGuid();
+            RepositoryCloneTicket ticket = new RepositoryCloneTicket(operationId, "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", false, true);
+            cloneCoordinatorMock.Setup(coordinator => coordinator.QueueClone(It.IsAny<string>())).Returns(ticket);
+
+            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
             DefaultHttpContext httpContext = new DefaultHttpContext();
             Mock<ITempDataProvider> tempDataProviderMock = new Mock<ITempDataProvider>();
             controller.TempData = new TempDataDictionary(httpContext, tempDataProviderMock.Object);
@@ -85,15 +91,20 @@ namespace MyApp.Tests.Controllers
         }
 
         [Fact]
-        public void AddRepository_ShouldReturnViewWhenCloneFails()
+        public void AddRepository_ShouldSignalAlreadyCloned()
         {
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
             repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(new List<LocalRepository>());
-            CloneRepositoryResult cloneResult = new CloneRepositoryResult(false, false, string.Empty, "Clone error");
-            repositoryServiceMock.Setup(service => service.CloneRepository(It.IsAny<string>())).Returns(cloneResult);
+            Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
             Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
 
-            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object);
+            RepositoryCloneTicket ticket = new RepositoryCloneTicket(Guid.Empty, "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", true, false);
+            cloneCoordinatorMock.Setup(coordinator => coordinator.QueueClone(It.IsAny<string>())).Returns(ticket);
+
+            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
+            DefaultHttpContext httpContext = new DefaultHttpContext();
+            Mock<ITempDataProvider> tempDataProviderMock = new Mock<ITempDataProvider>();
+            controller.TempData = new TempDataDictionary(httpContext, tempDataProviderMock.Object);
 
             AddRepositoryRequest request = new AddRepositoryRequest
             {
@@ -102,10 +113,41 @@ namespace MyApp.Tests.Controllers
 
             IActionResult result = controller.AddRepository(request);
 
+            RedirectToActionResult redirectResult = Assert.IsType<RedirectToActionResult>(result);
+            Assert.Equal(nameof(HomeController.Index), redirectResult.ActionName);
+            Assert.True(controller.TempData.ContainsKey("RepositoryAdded"));
+            Assert.False(controller.TempData.ContainsKey("RepositoryCloneOperationId"));
+        }
+
+        [Fact]
+        public void Index_ShouldPopulateCloneProgressFromTempData()
+        {
+            List<string> branches = new List<string>();
+            List<LocalRepository> repositories = new List<LocalRepository>();
+            Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
+            repositoryServiceMock.Setup(service => service.GetRepositories()).Returns(repositories);
+            Mock<IRepositoryCloneCoordinator> cloneCoordinatorMock = new Mock<IRepositoryCloneCoordinator>();
+            Mock<ILogger<HomeController>> loggerMock = new Mock<ILogger<HomeController>>();
+
+            Guid operationId = Guid.NewGuid();
+            RepositoryCloneStatus status = new RepositoryCloneStatus(operationId, "https://github.com/example/repo", RepositoryCloneState.Running, 42.0, "Receiving objects", string.Empty, DateTimeOffset.UtcNow);
+            cloneCoordinatorMock.Setup(coordinator => coordinator.TryGetStatus(operationId, out status)).Returns(true);
+
+            HomeController controller = new HomeController(loggerMock.Object, repositoryServiceMock.Object, cloneCoordinatorMock.Object);
+            DefaultHttpContext httpContext = new DefaultHttpContext();
+            Mock<ITempDataProvider> tempDataProviderMock = new Mock<ITempDataProvider>();
+            controller.TempData = new TempDataDictionary(httpContext, tempDataProviderMock.Object)
+            {
+                { "RepositoryCloneOperationId", operationId.ToString() }
+            };
+
+            IActionResult result = controller.Index();
+
             ViewResult viewResult = Assert.IsType<ViewResult>(result);
             HomeIndexViewModel viewModel = Assert.IsType<HomeIndexViewModel>(viewResult.Model);
-            Assert.False(viewModel.HasRepositories);
-            Assert.True(controller.ModelState.ContainsKey("AddRepository.RepositoryUrl"));
+            Assert.True(viewModel.IsCloneInProgress);
+            Assert.Equal(42.0, viewModel.CloneProgress.Percentage);
+            Assert.Equal("Receiving objects", viewModel.CloneProgress.Stage);
         }
     }
 }

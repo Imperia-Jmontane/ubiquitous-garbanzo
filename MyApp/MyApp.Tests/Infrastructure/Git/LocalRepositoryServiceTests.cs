@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MyApp.Application.Configuration;
@@ -50,6 +52,35 @@ namespace MyApp.Tests.Infrastructure.Git
             Assert.Single(repositories);
             LocalRepository repository = repositories.Single();
             Assert.Equal("source-repository", repository.Name);
+        }
+
+        [Fact]
+        public async Task CloneRepositoryAsync_ShouldReportProgress()
+        {
+            string cloneRoot = Path.Combine(_rootPath, "async-clones");
+            Directory.CreateDirectory(cloneRoot);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = cloneRoot
+            };
+
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+
+            string sourceRepositoryPath = Path.Combine(_rootPath, "source-repository-async");
+            CreateRepository(sourceRepositoryPath, new List<string>(), string.Empty);
+
+            List<RepositoryCloneProgress> updates = new List<RepositoryCloneProgress>();
+            Progress<RepositoryCloneProgress> progress = new Progress<RepositoryCloneProgress>(update =>
+            {
+                updates.Add(update);
+            });
+
+            CloneRepositoryResult result = await service.CloneRepositoryAsync(sourceRepositoryPath, progress, CancellationToken.None);
+
+            Assert.True(result.Succeeded);
+            Assert.False(result.AlreadyExists);
+            Assert.NotEmpty(updates);
         }
 
         [Fact]

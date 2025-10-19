@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
@@ -12,18 +13,20 @@ namespace MyApp.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly ILocalRepositoryService _repositoryService;
+        private readonly IRepositoryCloneCoordinator _cloneCoordinator;
 
-        public HomeController(ILogger<HomeController> logger, ILocalRepositoryService repositoryService)
+        public HomeController(ILogger<HomeController> logger, ILocalRepositoryService repositoryService, IRepositoryCloneCoordinator cloneCoordinator)
         {
             _logger = logger;
             _repositoryService = repositoryService;
+            _cloneCoordinator = cloneCoordinator;
         }
 
         public IActionResult Index()
         {
             IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
             string? addedRepositoryUrl = null;
-            bool isCloneInProgress = false;
+            CloneProgressViewModel cloneProgress = CloneProgressViewModel.CreateInactive();
 
             if (TempData != null)
             {
@@ -32,27 +35,28 @@ namespace MyApp.Controllers
                     addedRepositoryUrl = TempData["RepositoryAdded"] as string;
                 }
 
-                if (TempData.ContainsKey("RepositoryCloneInProgress"))
+                if (TempData.ContainsKey("RepositoryCloneOperationId"))
                 {
-                    object? cloneValue = TempData["RepositoryCloneInProgress"];
+                    object? operationValue = TempData["RepositoryCloneOperationId"];
+                    Guid operationId;
 
-                    if (cloneValue is bool cloneFlag)
+                    if (operationValue is string operationText && Guid.TryParse(operationText, out operationId))
                     {
-                        isCloneInProgress = cloneFlag;
-                    }
-                    else if (cloneValue != null)
-                    {
-                        bool parsed;
+                        RepositoryCloneStatus? status;
 
-                        if (bool.TryParse(cloneValue.ToString(), out parsed))
+                        if (_cloneCoordinator.TryGetStatus(operationId, out status) && status != null)
                         {
-                            isCloneInProgress = parsed;
+                            cloneProgress = new CloneProgressViewModel(true, status.OperationId, status.RepositoryUrl, status.Percentage, status.Stage, status.Message);
+                        }
+                        else
+                        {
+                            cloneProgress = new CloneProgressViewModel(true, operationId, string.Empty, 0.0, "Queued", string.Empty);
                         }
                     }
                 }
             }
 
-            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), isCloneInProgress);
+            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), cloneProgress);
             return View(viewModel);
         }
 
@@ -63,34 +67,40 @@ namespace MyApp.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult AddRepository(AddRepositoryRequest request)
+        public IActionResult AddRepository([Bind(Prefix = nameof(HomeIndexViewModel.AddRepository))] AddRepositoryRequest request)
         {
             if (!ModelState.IsValid)
             {
                 IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
-                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, false);
+                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, CloneProgressViewModel.CreateInactive());
                 return View("Index", invalidViewModel);
             }
 
-            CloneRepositoryResult cloneResult = _repositoryService.CloneRepository(request.RepositoryUrl);
-
-            if (!cloneResult.Succeeded)
-            {
-                string fieldKey = string.Format("{0}.{1}", nameof(HomeIndexViewModel.AddRepository), nameof(AddRepositoryRequest.RepositoryUrl));
-                string errorMessage = string.IsNullOrWhiteSpace(cloneResult.Message) ? "Failed to clone repository." : cloneResult.Message;
-                ModelState.AddModelError(fieldKey, errorMessage);
-                IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
-                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, false);
-                return View("Index", invalidViewModel);
-            }
+            RepositoryCloneTicket ticket = _cloneCoordinator.QueueClone(request.RepositoryUrl);
 
             if (TempData != null)
             {
-                string notification = cloneResult.AlreadyExists
-                    ? string.Format("Repository already cloned: {0}", request.RepositoryUrl)
-                    : request.RepositoryUrl;
+                string notification;
+
+                if (ticket.AlreadyCloned)
+                {
+                    notification = string.Format("Repository already cloned: {0}", request.RepositoryUrl);
+                }
+                else if (!ticket.Enqueued && ticket.HasOperation)
+                {
+                    notification = string.Format("Repository clone already in progress: {0}", request.RepositoryUrl);
+                }
+                else
+                {
+                    notification = request.RepositoryUrl;
+                }
+
                 TempData["RepositoryAdded"] = notification;
-                TempData["RepositoryCloneInProgress"] = !cloneResult.AlreadyExists;
+
+                if (ticket.HasOperation)
+                {
+                    TempData["RepositoryCloneOperationId"] = ticket.OperationId.ToString();
+                }
             }
             return RedirectToAction(nameof(Index));
         }
@@ -101,7 +111,7 @@ namespace MyApp.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, bool isCloneInProgress)
+        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, CloneProgressViewModel cloneProgress)
         {
             List<RepositoryListItemViewModel> repositoryViewModels = new List<RepositoryListItemViewModel>();
 
@@ -115,7 +125,7 @@ namespace MyApp.Controllers
                 repositoryViewModels.Add(repositoryViewModel);
             }
 
-            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, isCloneInProgress);
+            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, cloneProgress);
         }
     }
 }
