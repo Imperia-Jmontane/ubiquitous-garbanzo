@@ -202,13 +202,9 @@ namespace MyApp.Infrastructure.Git
             RepositoryCloneProgress startProgress = new RepositoryCloneProgress(0.0, "Starting clone", string.Empty);
             progress.Report(startProgress);
 
-            CommandResult result;
+            CommandResult result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
 
-            try
-            {
-                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
+            if (result.WasCanceled || cancellationToken.IsCancellationRequested)
             {
                 TryDeleteDirectory(repositoryPath);
                 string cancelledMessage = "Repository clone was canceled.";
@@ -319,7 +315,7 @@ namespace MyApp.Infrastructure.Git
 
                     if (!started)
                     {
-                        return new CommandResult(false, string.Empty, "Unable to start git process.");
+                        return new CommandResult(false, string.Empty, "Unable to start git process.", false);
                     }
 
                     process.BeginOutputReadLine();
@@ -339,7 +335,7 @@ namespace MyApp.Infrastructure.Git
                 string standardError = standardErrorBuilder.ToString();
                 bool success = process.ExitCode == 0;
 
-                return new CommandResult(success, standardOutput, standardError);
+                return new CommandResult(success, standardOutput, standardError, false);
             }
         }
 
@@ -506,7 +502,7 @@ namespace MyApp.Infrastructure.Git
 
                 if (!started)
                 {
-                    return new CommandResult(false, string.Empty, "Unable to start git process.");
+                    return new CommandResult(false, string.Empty, "Unable to start git process.", false);
                 }
 
                 Task<string> standardOutputTask = process.StandardOutput.ReadToEndAsync();
@@ -525,7 +521,7 @@ namespace MyApp.Infrastructure.Git
                         string timeoutOutput = standardOutputTask.IsCompletedSuccessfully ? standardOutputTask.Result : string.Empty;
                         string timeoutError = standardErrorTask.IsCompletedSuccessfully ? standardErrorTask.Result : string.Empty;
                         string message = string.IsNullOrWhiteSpace(timeoutError) ? "Git command timed out." : timeoutError.Trim();
-                        return new CommandResult(false, timeoutOutput, message);
+                        return new CommandResult(false, timeoutOutput, message, false);
                     }
                 }
                 else
@@ -539,7 +535,7 @@ namespace MyApp.Infrastructure.Git
                 string standardError = standardErrorTask.Result;
                 bool success = process.ExitCode == 0;
 
-                return new CommandResult(success, standardOutput, standardError);
+                return new CommandResult(success, standardOutput, standardError, false);
             }
         }
 
@@ -639,11 +635,12 @@ namespace MyApp.Infrastructure.Git
 
         private readonly struct CommandResult
         {
-            public CommandResult(bool succeeded, string standardOutput, string standardError)
+            public CommandResult(bool succeeded, string standardOutput, string standardError, bool wasCanceled)
             {
                 Succeeded = succeeded;
                 StandardOutput = standardOutput;
                 StandardError = standardError;
+                WasCanceled = wasCanceled;
             }
 
             public bool Succeeded { get; }
@@ -651,6 +648,8 @@ namespace MyApp.Infrastructure.Git
             public string StandardOutput { get; }
 
             public string StandardError { get; }
+
+            public bool WasCanceled { get; }
         }
     }
 }
