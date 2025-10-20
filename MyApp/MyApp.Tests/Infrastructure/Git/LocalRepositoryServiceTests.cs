@@ -84,6 +84,32 @@ namespace MyApp.Tests.Infrastructure.Git
         }
 
         [Fact]
+        public async Task CloneRepositoryAsync_ShouldReturnCanceledResultWhenTokenAlreadyCanceled()
+        {
+            string cloneRoot = Path.Combine(_rootPath, "canceled-clones");
+            Directory.CreateDirectory(cloneRoot);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = cloneRoot
+            };
+
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+
+            string sourceRepositoryPath = Path.Combine(_rootPath, "source-repository-canceled");
+            CreateRepository(sourceRepositoryPath, new List<string>(), string.Empty);
+
+            CancellationTokenSource cancellationSource = new CancellationTokenSource();
+            cancellationSource.Cancel();
+
+            CloneRepositoryResult result = await service.CloneRepositoryAsync(sourceRepositoryPath, null, cancellationSource.Token);
+
+            Assert.False(result.Succeeded);
+            Assert.True(result.WasCanceled);
+            Assert.False(result.AlreadyExists);
+        }
+
+        [Fact]
         public void GetRepositories_ShouldReturnRepositoriesWithBranches()
         {
             string firstRepositoryPath = Path.Combine(_rootPath, "ubiquitous-garbanzo");
@@ -107,11 +133,70 @@ namespace MyApp.Tests.Infrastructure.Git
             Assert.Equal("https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", firstRepository.RemoteUrl);
             Assert.Contains("develop", firstRepository.Branches);
             Assert.Contains("main", firstRepository.Branches);
+            Assert.False(firstRepository.HasUncommittedChanges);
+            Assert.False(firstRepository.HasUnpushedCommits);
 
             LocalRepository secondRepository = repositories.Single(repository => repository.Name == "vn2-inventory-optimization");
             Assert.Equal("https://github.com/imperia-scm/vn2-inventory-optimization.git", secondRepository.RemoteUrl);
             Assert.Contains("feature/planning", secondRepository.Branches);
             Assert.Contains("release/2024-06", secondRepository.Branches);
+            Assert.False(secondRepository.HasUncommittedChanges);
+            Assert.False(secondRepository.HasUnpushedCommits);
+        }
+
+        [Fact]
+        public void GetRepositories_ShouldDetectLocalChangesAndUnpushedCommits()
+        {
+            string repositoryPath = Path.Combine(_rootPath, "changes");
+            CreateRepository(repositoryPath, new List<string>(), string.Empty);
+
+            string remotePath = Path.Combine(_rootPath, "remote.git");
+            Directory.CreateDirectory(remotePath);
+            ExecuteGit(remotePath, new[] { "init", "--bare" });
+
+            ExecuteGit(repositoryPath, new[] { "remote", "add", "origin", remotePath });
+            ExecuteGit(repositoryPath, new[] { "push", "-u", "origin", "main" });
+
+            string committedFilePath = Path.Combine(repositoryPath, "local-change.txt");
+            File.WriteAllText(committedFilePath, "local commit");
+            ExecuteGit(repositoryPath, new[] { "add", "local-change.txt" });
+            ExecuteGit(repositoryPath, new[] { "commit", "-m", "Local work" });
+
+            string scratchFilePath = Path.Combine(repositoryPath, "scratch.txt");
+            File.WriteAllText(scratchFilePath, "scratch data");
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = _rootPath
+            };
+
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+
+            IReadOnlyCollection<LocalRepository> repositories = service.GetRepositories();
+            LocalRepository repository = Assert.Single(repositories);
+            Assert.True(repository.HasRemote);
+            Assert.True(repository.HasUnpushedCommits);
+            Assert.True(repository.HasUncommittedChanges);
+        }
+
+        [Fact]
+        public void DeleteRepository_ShouldRemoveRepository()
+        {
+            string repositoryPath = Path.Combine(_rootPath, "to-delete");
+            CreateRepository(repositoryPath, new List<string>(), string.Empty);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = _rootPath
+            };
+
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+
+            DeleteRepositoryResult result = service.DeleteRepository("to-delete");
+
+            Assert.True(result.Succeeded);
+            Assert.False(result.NotFound);
+            Assert.False(Directory.Exists(repositoryPath));
         }
 
         public void Dispose()

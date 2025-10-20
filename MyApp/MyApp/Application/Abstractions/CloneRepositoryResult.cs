@@ -4,12 +4,13 @@ namespace MyApp.Application.Abstractions
 {
     public sealed class CloneRepositoryResult
     {
-        public CloneRepositoryResult(bool succeeded, bool alreadyExists, string repositoryPath, string message)
+        public CloneRepositoryResult(bool succeeded, bool alreadyExists, string repositoryPath, string message, bool wasCanceled)
         {
             Succeeded = succeeded;
             AlreadyExists = alreadyExists;
             RepositoryPath = repositoryPath ?? string.Empty;
             Message = message ?? string.Empty;
+            WasCanceled = wasCanceled;
         }
 
         public bool Succeeded { get; }
@@ -19,5 +20,7 @@ namespace MyApp.Application.Abstractions
         public string RepositoryPath { get; }
 
         public string Message { get; }
+
+        public bool WasCanceled { get; }
     }
 }

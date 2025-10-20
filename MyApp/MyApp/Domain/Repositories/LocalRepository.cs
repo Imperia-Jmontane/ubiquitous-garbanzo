@@ -5,7 +5,7 @@ namespace MyApp.Domain.Repositories
 {
     public sealed class LocalRepository
     {
-        public LocalRepository(string name, string fullPath, string remoteUrl, IReadOnlyCollection<string> branches)
+        public LocalRepository(string name, string fullPath, string remoteUrl, IReadOnlyCollection<string> branches, bool hasUncommittedChanges, bool hasUnpushedCommits)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -26,6 +26,8 @@ namespace MyApp.Domain.Repositories
             FullPath = fullPath;
             RemoteUrl = remoteUrl ?? string.Empty;
             Branches = branches;
+            HasUncommittedChanges = hasUncommittedChanges;
+            HasUnpushedCommits = hasUnpushedCommits;
         }
 
         public string Name { get; }
@@ -35,5 +37,17 @@ namespace MyApp.Domain.Repositories
         public string RemoteUrl { get; }
 
         public IReadOnlyCollection<string> Branches { get; }
+
+        public bool HasUncommittedChanges { get; }
+
+        public bool HasUnpushedCommits { get; }
+
+        public bool HasRemote
+        {
+            get
+            {
+                return !string.IsNullOrWhiteSpace(RemoteUrl);
+            }
+        }
     }
 }

@@ -10,5 +10,7 @@ namespace MyApp.Application.Abstractions
         bool TryGetStatus(Guid operationId, out RepositoryCloneStatus? status);
 
         IReadOnlyCollection<RepositoryCloneStatus> GetActiveClones();
+
+        RepositoryCloneCancellationResult CancelClone(Guid operationId);
     }
 }

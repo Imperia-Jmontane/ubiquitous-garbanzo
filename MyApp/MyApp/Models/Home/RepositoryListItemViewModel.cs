@@ -6,7 +6,7 @@ namespace MyApp.Models.Home
 {
     public sealed class RepositoryListItemViewModel
     {
-        public RepositoryListItemViewModel(string name, string repositoryPath, string remoteUrl, IReadOnlyCollection<string> branches)
+        public RepositoryListItemViewModel(string name, string repositoryPath, string remoteUrl, IReadOnlyCollection<string> branches, bool hasUncommittedChanges, bool hasUnpushedCommits)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -27,6 +27,8 @@ namespace MyApp.Models.Home
             RepositoryPath = repositoryPath;
             RemoteUrl = remoteUrl ?? string.Empty;
             Branches = branches.ToList();
+            HasUncommittedChanges = hasUncommittedChanges;
+            HasUnpushedCommits = hasUnpushedCommits;
         }
 
         public string Name { get; }
@@ -37,11 +39,31 @@ namespace MyApp.Models.Home
 
         public IReadOnlyCollection<string> Branches { get; }
 
+        public bool HasUncommittedChanges { get; }
+
+        public bool HasUnpushedCommits { get; }
+
         public bool HasBranches
         {
             get
             {
                 return Branches.Count > 0;
+            }
+        }
+
+        public bool HasRemote
+        {
+            get
+            {
+                return !string.IsNullOrWhiteSpace(RemoteUrl);
+            }
+        }
+
+        public bool HasUnsyncedChanges
+        {
+            get
+            {
+                return HasUncommittedChanges || HasUnpushedCommits;
             }
         }
     }
