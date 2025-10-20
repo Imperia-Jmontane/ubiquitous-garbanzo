@@ -202,19 +202,7 @@ namespace MyApp.Infrastructure.Git
             RepositoryCloneProgress startProgress = new RepositoryCloneProgress(0.0, "Starting clone", string.Empty);
             progress.Report(startProgress);
 
-            CommandResult result;
-
-            try
-            {
-                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is OperationCanceledException || exception is TaskCanceledException)
-            {
-                TryDeleteDirectory(repositoryPath);
-                string cancelledMessage = "Repository clone was canceled.";
-                _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
-                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage, true);
-            }
+            CommandResult result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.WasCanceled || cancellationToken.IsCancellationRequested)
             {
@@ -327,48 +315,34 @@ namespace MyApp.Infrastructure.Git
                         }
                     }))
                     {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            string canceledOutput = standardOutputBuilder.ToString();
-                            string canceledError = standardErrorBuilder.ToString();
-                            return new CommandResult(false, canceledOutput, canceledError, true);
-                        }
+                    }
+                }))
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
+                    }
 
-                        bool started = process.Start();
+                    bool started = process.Start();
+
+                    if (!started)
+                    {
+                        return new CommandResult(false, string.Empty, "Unable to start git process.", false);
+                    }
 
                         if (!started)
                         {
                             return new CommandResult(false, string.Empty, "Unable to start git process.", false);
                         }
 
-                        process.BeginOutputReadLine();
-                        process.BeginErrorReadLine();
+                    Task waitForExitTask = process.WaitForExitAsync();
+                    await waitForExitTask.ConfigureAwait(false);
+                    process.WaitForExit();
 
-                        try
-                        {
-                            await exitCompletion.Task.ConfigureAwait(false);
-                        }
-                        catch (Exception exception) when (exception is OperationCanceledException || exception is TaskCanceledException)
-                        {
-                            process.WaitForExit();
-                            string canceledOutput = standardOutputBuilder.ToString();
-                            string canceledError = standardErrorBuilder.ToString();
-                            return new CommandResult(false, canceledOutput, canceledError, true);
-                        }
-
-                        process.WaitForExit();
-
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            string canceledOutput = standardOutputBuilder.ToString();
-                            string canceledError = standardErrorBuilder.ToString();
-                            return new CommandResult(false, canceledOutput, canceledError, true);
-                        }
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
                     }
-                }
-                finally
-                {
-                    process.Exited -= exitHandler;
                 }
 
                 string standardOutput = standardOutputBuilder.ToString();
