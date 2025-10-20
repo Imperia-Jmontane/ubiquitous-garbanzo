@@ -68,7 +68,9 @@ namespace MyApp.Infrastructure.Git
                 {
                     IReadOnlyCollection<string> branches = GetBranches(repositoryDirectory.FullName);
                     string remoteUrl = GetRemoteUrl(repositoryDirectory.FullName);
-                    LocalRepository repository = new LocalRepository(repositoryDirectory.Name, repositoryDirectory.FullName, remoteUrl, branches);
+                    bool hasUncommittedChanges = HasUncommittedChanges(repositoryDirectory.FullName);
+                    bool hasUnpushedCommits = HasUnpushedCommits(repositoryDirectory.FullName);
+                    LocalRepository repository = new LocalRepository(repositoryDirectory.Name, repositoryDirectory.FullName, remoteUrl, branches, hasUncommittedChanges, hasUnpushedCommits);
                     repositories.Add(repository);
                 }
                 catch (Exception exception)
@@ -94,6 +96,63 @@ namespace MyApp.Infrastructure.Git
             return CloneRepositoryInternalAsync(repositoryUrl, safeProgress, cancellationToken);
         }
 
+        public DeleteRepositoryResult DeleteRepository(string repositoryName)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryName))
+            {
+                return new DeleteRepositoryResult(false, false, "The repository name must be provided.");
+            }
+
+            if (string.IsNullOrWhiteSpace(_options.RootPath))
+            {
+                string configurationMessage = "Repository root path is not configured.";
+                _logger.LogWarning(configurationMessage);
+                return new DeleteRepositoryResult(false, false, configurationMessage);
+            }
+
+            string rootFullPath;
+            string candidatePath;
+
+            try
+            {
+                rootFullPath = Path.GetFullPath(_options.RootPath);
+                candidatePath = Path.GetFullPath(Path.Combine(_options.RootPath, repositoryName));
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Failed to resolve repository path for {RepositoryName}", repositoryName);
+                return new DeleteRepositoryResult(false, false, "The repository name is invalid.");
+            }
+
+            if (!candidatePath.StartsWith(rootFullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Attempted to delete repository outside of root: {RepositoryPath}", candidatePath);
+                return new DeleteRepositoryResult(false, false, "The repository name is invalid.");
+            }
+
+            if (!Directory.Exists(candidatePath))
+            {
+                return new DeleteRepositoryResult(false, true, "The repository was not found.");
+            }
+
+            try
+            {
+                Directory.Delete(candidatePath, true);
+            }
+            catch (IOException exception)
+            {
+                _logger.LogError(exception, "Failed to delete repository at {RepositoryPath}", candidatePath);
+                return new DeleteRepositoryResult(false, false, "Failed to delete the repository.");
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                _logger.LogError(exception, "Unauthorized to delete repository at {RepositoryPath}", candidatePath);
+                return new DeleteRepositoryResult(false, false, "Failed to delete the repository.");
+            }
+
+            return new DeleteRepositoryResult(true, false, "Repository deleted.");
+        }
+
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(repositoryUrl))
@@ -105,7 +164,7 @@ namespace MyApp.Infrastructure.Git
             {
                 string message = "Repository root path is not configured.";
                 _logger.LogWarning(message);
-                return new CloneRepositoryResult(false, false, string.Empty, message);
+                return new CloneRepositoryResult(false, false, string.Empty, message, false);
             }
 
             try
@@ -116,7 +175,7 @@ namespace MyApp.Infrastructure.Git
             {
                 string message = string.Format("Unable to create repository root at {0}.", _options.RootPath);
                 _logger.LogError(exception, "Unable to create repository root at {RepositoryRoot}", _options.RootPath);
-                return new CloneRepositoryResult(false, false, string.Empty, message);
+                return new CloneRepositoryResult(false, false, string.Empty, message, false);
             }
 
             string repositoryName;
@@ -128,7 +187,7 @@ namespace MyApp.Infrastructure.Git
             catch (Exception exception)
             {
                 _logger.LogWarning(exception, "Failed to determine repository name from {RepositoryUrl}", repositoryUrl);
-                return new CloneRepositoryResult(false, false, string.Empty, "The repository URL is invalid.");
+                return new CloneRepositoryResult(false, false, string.Empty, "The repository URL is invalid.", false);
             }
 
             string repositoryPath = Path.Combine(_options.RootPath, repositoryName);
@@ -137,7 +196,7 @@ namespace MyApp.Infrastructure.Git
             {
                 RepositoryCloneProgress alreadyProgress = new RepositoryCloneProgress(100.0, "Repository already cloned.", string.Empty);
                 progress.Report(alreadyProgress);
-                return new CloneRepositoryResult(true, true, repositoryPath, "Repository already cloned.");
+                return new CloneRepositoryResult(true, true, repositoryPath, "Repository already cloned.", false);
             }
 
             RepositoryCloneProgress startProgress = new RepositoryCloneProgress(0.0, "Starting clone", string.Empty);
@@ -154,7 +213,7 @@ namespace MyApp.Infrastructure.Git
                 TryDeleteDirectory(repositoryPath);
                 string cancelledMessage = "Repository clone was canceled.";
                 _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
-                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage);
+                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage, true);
             }
 
             if (!result.Succeeded)
@@ -163,12 +222,12 @@ namespace MyApp.Infrastructure.Git
                 string trimmedError = result.StandardError.Trim();
                 string message = string.IsNullOrWhiteSpace(trimmedError) ? "Failed to clone repository." : trimmedError;
                 _logger.LogError("Git clone failed for {RepositoryUrl}: {Message}", repositoryUrl, message);
-                return new CloneRepositoryResult(false, false, string.Empty, message);
+                return new CloneRepositoryResult(false, false, string.Empty, message, false);
             }
 
             RepositoryCloneProgress completedProgress = new RepositoryCloneProgress(100.0, "Completed", string.Empty);
             progress.Report(completedProgress);
-            return new CloneRepositoryResult(true, false, repositoryPath, string.Empty);
+            return new CloneRepositoryResult(true, false, repositoryPath, string.Empty, false);
         }
 
         private static async Task<CommandResult> ExecuteGitCloneAsync(string workingDirectory, string repositoryUrl, string repositoryPath, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
@@ -251,6 +310,11 @@ namespace MyApp.Infrastructure.Git
                     }
                 }))
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
+                    }
+
                     bool started = process.Start();
 
                     if (!started)
@@ -261,8 +325,14 @@ namespace MyApp.Infrastructure.Git
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                    Task waitForExitTask = process.WaitForExitAsync();
+                    await waitForExitTask.ConfigureAwait(false);
                     process.WaitForExit();
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
+                    }
                 }
 
                 string standardOutput = standardOutputBuilder.ToString();
@@ -310,6 +380,61 @@ namespace MyApp.Infrastructure.Git
 
             stage = trimmedLine;
             return true;
+        }
+
+        private static bool HasUncommittedChanges(string repositoryPath)
+        {
+            CommandResult statusResult = ExecuteGitCommand(repositoryPath, new[] { "status", "--porcelain" });
+
+            if (!statusResult.Succeeded)
+            {
+                return false;
+            }
+
+            string output = statusResult.StandardOutput;
+
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                return false;
+            }
+
+            string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            return lines.Length > 0;
+        }
+
+        private static bool HasUnpushedCommits(string repositoryPath)
+        {
+            CommandResult branchResult = ExecuteGitCommand(repositoryPath, new[] { "status", "--porcelain=1", "--branch" });
+
+            if (!branchResult.Succeeded)
+            {
+                return false;
+            }
+
+            string[] lines = branchResult.StandardOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (lines.Length == 0)
+            {
+                return false;
+            }
+
+            string branchLine = lines[0];
+            Match match = Regex.Match(branchLine, @"ahead\s+(?<count>\d+)", RegexOptions.IgnoreCase);
+
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            string countText = match.Groups["count"].Value;
+            int parsedCount;
+
+            if (!int.TryParse(countText, out parsedCount))
+            {
+                return false;
+            }
+
+            return parsedCount > 0;
         }
 
         private static IReadOnlyCollection<string> GetBranches(string repositoryPath)
