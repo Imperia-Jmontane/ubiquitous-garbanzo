@@ -202,19 +202,7 @@ namespace MyApp.Infrastructure.Git
             RepositoryCloneProgress startProgress = new RepositoryCloneProgress(0.0, "Starting clone", string.Empty);
             progress.Report(startProgress);
 
-            CommandResult result;
-
-            try
-            {
-                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is OperationCanceledException || exception is TaskCanceledException)
-            {
-                TryDeleteDirectory(repositoryPath);
-                string cancelledMessage = "Repository clone was canceled.";
-                _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
-                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage, true);
-            }
+            CommandResult result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.WasCanceled || cancellationToken.IsCancellationRequested)
             {
@@ -306,11 +294,9 @@ namespace MyApp.Infrastructure.Git
                 process.EnableRaisingEvents = true;
                 process.Exited += exitHandler;
 
-                CancellationTokenRegistration registration = default;
-
                 try
                 {
-                    registration = cancellationToken.Register(() =>
+                    using (cancellationToken.Register(() =>
                     {
                         exitCompletion.TrySetCanceled(cancellationToken);
 
@@ -327,13 +313,17 @@ namespace MyApp.Infrastructure.Git
                         catch (NotSupportedException)
                         {
                         }
-                    });
-
-                    if (cancellationToken.IsCancellationRequested)
+                    }))
                     {
                         string canceledOutput = standardOutputBuilder.ToString();
                         string canceledError = standardErrorBuilder.ToString();
                         return new CommandResult(false, canceledOutput, canceledError, true);
+                    }
+                }))
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
                     }
 
                     bool started = process.Start();
@@ -343,34 +333,19 @@ namespace MyApp.Infrastructure.Git
                         return new CommandResult(false, string.Empty, "Unable to start git process.", false);
                     }
 
-                    process.BeginOutputReadLine();
-                    process.BeginErrorReadLine();
+                        if (!started)
+                        {
+                            return new CommandResult(false, string.Empty, "Unable to start git process.", false);
+                        }
 
-                    try
-                    {
-                        await exitCompletion.Task.ConfigureAwait(false);
-                    }
-                    catch (Exception exception) when (exception is OperationCanceledException || exception is TaskCanceledException)
-                    {
-                        process.WaitForExit();
-                        string canceledOutput = standardOutputBuilder.ToString();
-                        string canceledError = standardErrorBuilder.ToString();
-                        return new CommandResult(false, canceledOutput, canceledError, true);
-                    }
-
+                    Task waitForExitTask = process.WaitForExitAsync();
+                    await waitForExitTask.ConfigureAwait(false);
                     process.WaitForExit();
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        string canceledOutput = standardOutputBuilder.ToString();
-                        string canceledError = standardErrorBuilder.ToString();
-                        return new CommandResult(false, canceledOutput, canceledError, true);
+                        throw new OperationCanceledException(cancellationToken);
                     }
-                }
-                finally
-                {
-                    registration.Dispose();
-                    process.Exited -= exitHandler;
                 }
 
                 string standardOutput = standardOutputBuilder.ToString();
