@@ -126,7 +126,9 @@ namespace MyApp.Controllers
                     repository.Name,
                     repository.FullPath,
                     repository.RemoteUrl,
-                    repository.Branches);
+                    repository.Branches,
+                    repository.HasUncommittedChanges,
+                    repository.HasUnpushedCommits);
                 repositoryViewModels.Add(repositoryViewModel);
             }
 

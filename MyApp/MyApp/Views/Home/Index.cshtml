@@ -54,6 +54,7 @@
         <div class="mt-8" data-repository-list="true">
             @await Html.PartialAsync("_RepositoryList", Model.Repositories)
         </div>
+        <div class="mt-4 hidden rounded-lg border border-white/10 bg-black/40 p-4 text-sm text-gray-200" data-repository-feedback="true"></div>
     </div>
 </section>
 
@@ -67,6 +68,7 @@
             const cloneList = document.querySelector('[data-clone-status-list="true"]');
             const repositoryList = document.querySelector('[data-repository-list="true"]');
             const repositoryCountLabel = document.querySelector('[data-repository-count="true"]');
+            const repositoryFeedback = document.querySelector('[data-repository-feedback="true"]');
             const initialDataElement = document.getElementById('clone-progress-data');
 
             if (!cloneList) {
@@ -90,6 +92,7 @@
             }
 
             refreshFromServer();
+            bindRepositoryActions();
 
             if (cloneForm && cloneInput && cloneSubmit) {
                 cloneForm.addEventListener('submit', function (event) {
@@ -207,7 +210,10 @@
                 }
 
                 operationEntry.key = key;
+                operationEntry.operationId = state.operationId;
+                operationEntry.repositoryUrl = state.repositoryUrl;
                 bindClose(operationEntry);
+                bindCancel(operationEntry);
 
                 updateOperationEntry(operationEntry, state);
 
@@ -235,7 +241,7 @@
                 return 'static:' + Math.random().toString(36).substring(2);
             }
 
-            function createOperationEntry(state) {
+                        function createOperationEntry(state) {
                 const card = document.createElement('div');
                 card.className = 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200';
                 card.setAttribute('data-operation-card', 'true');
@@ -262,12 +268,23 @@
                 badge.setAttribute('data-status-badge', 'true');
                 header.append(badge);
 
+                const actionContainer = document.createElement('div');
+                actionContainer.className = 'flex items-center gap-2';
+                header.append(actionContainer);
+
+                const cancelButton = document.createElement('button');
+                cancelButton.type = 'button';
+                cancelButton.setAttribute('data-cancel', 'true');
+                cancelButton.className = 'hidden inline-flex items-center gap-1 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-200 transition hover:bg-red-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400';
+                cancelButton.textContent = 'Stop clone';
+                actionContainer.append(cancelButton);
+
                 const closeButton = document.createElement('button');
                 closeButton.type = 'button';
                 closeButton.setAttribute('data-close', 'true');
                 closeButton.className = 'hidden rounded-md border border-white/10 bg-white/5 p-1 text-gray-200 transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500';
-                closeButton.innerHTML = '<span class=\"sr-only\">Dismiss notification</span><svg viewBox=\"0 0 20 20\" fill=\"currentColor\" aria-hidden=\"true\" class=\"size-4\"><path fill-rule=\"evenodd\" d=\"M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z\" clip-rule=\"evenodd\"></path></svg>';
-                header.append(closeButton);
+                closeButton.innerHTML = '<span class="sr-only">Dismiss notification</span><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-4"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z" clip-rule="evenodd"></path></svg>';
+                actionContainer.append(closeButton);
 
                 const progressContainer = document.createElement('div');
                 progressContainer.className = 'mt-4 space-y-3';
@@ -337,13 +354,15 @@
                     stepsContainer: stageGrid,
                     summaryContainer: summaryContainer,
                     pollTimerId: null,
+                    cancelButton: cancelButton,
                     closeButton: closeButton,
                     isActive: state.isActive,
-                    state: state.state
+                    state: state.state,
+                    operationId: state.operationId,
+                    repositoryUrl: state.repositoryUrl
                 };
             }
-
-            function updateOperationEntry(entry, state) {
+function updateOperationEntry(entry, state) {
                 const wasActive = entry.isActive === true;
                 const normalizedStage = state.stage && state.stage.length > 0 ? state.stage : 'Processing repository...';
                 const normalizedMessage = state.message && state.message.length > 0 ? state.message : defaultMessageForState(state.state);
@@ -356,6 +375,8 @@
                 entry.messageSpan.textContent = state.notification || state.repositoryUrl || 'Repository clone';
                 entry.badge.textContent = info.badgeText;
                 entry.badge.className = info.badgeClass;
+                entry.operationId = state.operationId;
+                entry.repositoryUrl = state.repositoryUrl;
 
                 if (state.isActive) {
                     entry.progressContainer.style.display = '';
@@ -370,6 +391,14 @@
                     entry.progressValue.textContent = displayPercentage;
                     entry.messageParagraph.textContent = normalizedMessage;
                     updateSteps(entry.stepsContainer, normalizedStage, state.state);
+                    if (entry.cancelButton) {
+                        entry.cancelButton.classList.remove('hidden');
+                        if (entry.cancelButton.dataset.pending === 'true') {
+                            setCancelButtonDisabled(entry.cancelButton, true, true);
+                        } else {
+                            setCancelButtonDisabled(entry.cancelButton, false, false);
+                        }
+                    }
                 } else {
                     entry.progressContainer.style.display = 'none';
                     entry.summaryContainer.style.display = '';
@@ -379,6 +408,10 @@
                     }
                     if (state.state === 'Completed') {
                         scheduleRepositoryRefresh();
+                    }
+                    if (entry.cancelButton) {
+                        entry.cancelButton.classList.add('hidden');
+                        setCancelButtonDisabled(entry.cancelButton, true, false);
                     }
                 }
 
@@ -401,6 +434,10 @@
                     return 'Clone completed successfully. Preparing the repository list...';
                 }
 
+                if (normalized === 'canceled') {
+                    return 'Repository clone was canceled. Partial data was removed.';
+                }
+
                 return 'We are cloning your repository. This usually takes less than a minute.';
             }
 
@@ -413,6 +450,10 @@
 
                 if (normalized === 'completed') {
                     return 'Repository cloned:';
+                }
+
+                if (normalized === 'canceled') {
+                    return 'Repository clone canceled:';
                 }
 
                 if (normalized === 'running' && isActive) {
@@ -433,6 +474,10 @@
                     return 'rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200';
                 }
 
+                if (normalized === 'canceled') {
+                    return 'rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200';
+                }
+
                 return 'rounded-lg border border-indigo-500/40 bg-indigo-500/10 p-4 text-sm text-indigo-100';
             }
 
@@ -449,6 +494,10 @@
 
                 if (normalized === 'failed') {
                     return 'Clone failed. Please review the repository URL or credentials.';
+                }
+
+                if (normalized === 'canceled') {
+                    return 'Clone canceled. Partial files were cleaned up.';
                 }
 
                 return 'Clone status updated.';
@@ -575,6 +624,8 @@
                 const stateName = status && status.state ? status.state : (response.alreadyCloned ? 'Completed' : 'Queued');
                 const notification = response.notification || response.repositoryUrl || 'Repository clone';
 
+                const normalizedState = (stateName || '').toLowerCase();
+
                 return {
                     operationId: operationId,
                     repositoryUrl: response.repositoryUrl || '',
@@ -583,12 +634,13 @@
                     stage: stage,
                     message: message,
                     state: stateName,
-                    isActive: stateName === 'Queued' || stateName === 'Running'
+                    isActive: normalizedState === 'queued' || normalizedState === 'running'
                 };
             }
 
             function convertStatusToViewState(status) {
                 const stateName = status.state || 'Queued';
+                const normalizedState = (stateName || '').toLowerCase();
 
                 return {
                     operationId: status.operationId || '',
@@ -598,7 +650,7 @@
                     stage: status.stage || '',
                     message: status.message || '',
                     state: stateName,
-                    isActive: stateName === 'Queued' || stateName === 'Running'
+                    isActive: normalizedState === 'queued' || normalizedState === 'running'
                 };
             }
 
@@ -630,6 +682,7 @@
                         }
 
                         repositoryList.innerHTML = payload.innerHTML;
+                        bindRepositoryActions();
 
                         const countAttribute = payload.getAttribute('data-count');
                         const repositoryCount = parseInt(countAttribute || '0', 10) || 0;
@@ -642,6 +695,211 @@
                     .catch(function (error) {
                         console.warn(error);
                     });
+            }
+
+            function bindRepositoryActions() {
+                if (!repositoryList) {
+                    return;
+                }
+
+                const deleteButtons = repositoryList.querySelectorAll('[data-repository-delete="true"]');
+
+                deleteButtons.forEach(function (button) {
+                    if (button.dataset.bound === 'true') {
+                        return;
+                    }
+
+                    button.dataset.bound = 'true';
+                    button.addEventListener('click', function () {
+                        handleRepositoryDelete(button);
+                    });
+                });
+            }
+
+            function handleRepositoryDelete(button) {
+                if (!button) {
+                    return;
+                }
+
+                const repositoryName = button.getAttribute('data-repository-name') || '';
+
+                if (!repositoryName) {
+                    return;
+                }
+
+                const hasRemote = button.getAttribute('data-has-remote') === 'true';
+                const hasUncommitted = button.getAttribute('data-has-uncommitted') === 'true';
+                const hasUnpushed = button.getAttribute('data-has-unpushed') === 'true';
+
+                const warningLines = [];
+                warningLines.push('Are you sure you want to delete the local copy of "' + repositoryName + '"?');
+                warningLines.push('The cloned files will be removed immediately.');
+
+                if (!hasRemote) {
+                    warningLines.push('No remote origin was detected for this repository.');
+                }
+
+                if (hasUncommitted || hasUnpushed) {
+                    warningLines.push('Local changes were found that may not exist in the cloud and cannot be recovered.');
+                }
+
+                const confirmationMessage = warningLines.join('\n\n');
+
+                if (!window.confirm(confirmationMessage)) {
+                    return;
+                }
+
+                showRepositoryFeedback('', false);
+                setRepositoryDeleteDisabled(button, true);
+
+                const encodedName = encodeURIComponent(repositoryName);
+
+                fetch('/api/repositories/' + encodedName, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            return response.json().then(function (data) {
+                                const message = data && data.message ? data.message : 'Failed to delete repository.';
+                                throw new Error(message);
+                            }).catch(function (error) {
+                                throw new Error(error.message || 'Failed to delete repository.');
+                            });
+                        }
+
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        const feedbackMessage = payload && payload.message ? payload.message : 'Repository deleted.';
+                        showRepositoryFeedback(feedbackMessage, false);
+                        refreshRepositories();
+                    })
+                    .catch(function (error) {
+                        showRepositoryFeedback(error.message || 'Failed to delete repository.', true);
+                    })
+                    .finally(function () {
+                        setRepositoryDeleteDisabled(button, false);
+                    });
+            }
+
+            function setRepositoryDeleteDisabled(button, disabled) {
+                if (!button) {
+                    return;
+                }
+
+                if (disabled) {
+                    button.setAttribute('disabled', 'disabled');
+                    button.classList.add('opacity-70');
+                } else {
+                    button.removeAttribute('disabled');
+                    button.classList.remove('opacity-70');
+                }
+            }
+
+            function showRepositoryFeedback(message, isError) {
+                if (!repositoryFeedback) {
+                    return;
+                }
+
+                repositoryFeedback.classList.remove('border-red-500/40', 'text-red-200', 'border-emerald-500/40', 'text-emerald-200');
+
+                if (!message) {
+                    repositoryFeedback.classList.add('hidden');
+                    repositoryFeedback.textContent = '';
+                    repositoryFeedback.classList.add('border-white/10', 'text-gray-200');
+                    return;
+                }
+
+                repositoryFeedback.textContent = message;
+                repositoryFeedback.classList.remove('hidden', 'border-white/10', 'text-gray-200');
+
+                if (isError) {
+                    repositoryFeedback.classList.add('border-red-500/40', 'text-red-200');
+                } else {
+                    repositoryFeedback.classList.add('border-emerald-500/40', 'text-emerald-200');
+                }
+            }
+
+            function bindCancel(entry) {
+                if (!entry.cancelButton || entry.cancelButton.dataset.bound === 'true') {
+                    return;
+                }
+
+                entry.cancelButton.dataset.bound = 'true';
+                entry.cancelButton.dataset.pending = 'false';
+                entry.cancelButton.addEventListener('click', function () {
+                    requestCancellation(entry);
+                });
+            }
+
+            function requestCancellation(entry) {
+                if (!entry || !entry.cancelButton) {
+                    return;
+                }
+
+                const operationId = entry.operationId || '';
+
+                if (!operationId || operationId === '00000000-0000-0000-0000-000000000000') {
+                    return;
+                }
+
+                const repositoryName = entry.repositoryUrl && entry.repositoryUrl.length > 0
+                    ? entry.repositoryUrl
+                    : (entry.messageSpan && entry.messageSpan.textContent ? entry.messageSpan.textContent : 'this repository');
+
+                const confirmationMessage = 'Stopping the clone for "' + repositoryName + '" will delete any files that have been downloaded so far.\n\nDo you want to continue?';
+
+                if (!window.confirm(confirmationMessage)) {
+                    return;
+                }
+
+                setCancelButtonDisabled(entry.cancelButton, true, true);
+
+                fetch('/api/repositories/clone/' + operationId, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            return response.json().then(function (data) {
+                                const message = data && data.message ? data.message : 'Unable to cancel repository clone.';
+                                throw new Error(message);
+                            }).catch(function (error) {
+                                throw new Error(error.message || 'Unable to cancel repository clone.');
+                            });
+                        }
+
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        if (payload && payload.status) {
+                            const viewState = convertStatusToViewState(payload.status);
+                            upsertOperation(viewState);
+                        }
+                    })
+                    .catch(function (error) {
+                        showError(error.message || 'Unable to cancel repository clone.');
+                        setCancelButtonDisabled(entry.cancelButton, false, false);
+                    });
+            }
+
+            function setCancelButtonDisabled(button, disabled, pending) {
+                if (!button) {
+                    return;
+                }
+
+                if (disabled) {
+                    button.setAttribute('disabled', 'disabled');
+                    button.classList.add('opacity-70');
+                } else {
+                    button.removeAttribute('disabled');
+                    button.classList.remove('opacity-70');
+                }
+
+                if (typeof pending === 'boolean') {
+                    button.dataset.pending = pending ? 'true' : 'false';
+                }
             }
 
             function bindClose(entry) {
@@ -700,6 +958,10 @@
                     badgeText = 'Failed';
                     badgeClass = 'inline-flex items-center gap-2 rounded-full border border-red-500/50 bg-red-500/20 px-2 py-1 text-xs font-semibold text-red-200';
                     progressClass = 'bg-red-500';
+                } else if (normalized === 'canceled') {
+                    badgeText = 'Canceled';
+                    badgeClass = 'inline-flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-1 text-xs font-semibold text-amber-200';
+                    progressClass = 'bg-amber-500';
                 } else if (normalized === 'queued') {
                     badgeText = 'Queued';
                 }
