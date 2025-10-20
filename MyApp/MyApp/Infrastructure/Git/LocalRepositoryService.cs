@@ -308,7 +308,7 @@ namespace MyApp.Infrastructure.Git
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return new CommandResult(false, string.Empty, string.Empty, true);
+                        throw new OperationCanceledException(cancellationToken);
                     }
 
                     bool started = process.Start();
@@ -327,7 +327,7 @@ namespace MyApp.Infrastructure.Git
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        return new CommandResult(false, string.Empty, string.Empty, true);
+                        throw new OperationCanceledException(cancellationToken);
                     }
                 }
 
