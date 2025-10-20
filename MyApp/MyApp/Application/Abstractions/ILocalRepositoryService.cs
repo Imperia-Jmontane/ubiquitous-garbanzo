@@ -12,5 +12,7 @@ namespace MyApp.Application.Abstractions
         CloneRepositoryResult CloneRepository(string repositoryUrl);
 
         Task<CloneRepositoryResult> CloneRepositoryAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken);
+
+        DeleteRepositoryResult DeleteRepository(string repositoryName);
     }
 }

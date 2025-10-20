@@ -16,6 +16,7 @@ namespace MyApp.Infrastructure.Git
         private readonly ILogger<RepositoryCloneCoordinator> _logger;
         private readonly ConcurrentDictionary<Guid, CloneOperationState> _operations;
         private readonly ConcurrentDictionary<string, Guid> _operationKeys;
+        private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _operationCancellations;
 
         public RepositoryCloneCoordinator(ILocalRepositoryService repositoryService, ILogger<RepositoryCloneCoordinator> logger)
         {
@@ -33,6 +34,7 @@ namespace MyApp.Infrastructure.Git
             _logger = logger;
             _operations = new ConcurrentDictionary<Guid, CloneOperationState>();
             _operationKeys = new ConcurrentDictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+            _operationCancellations = new ConcurrentDictionary<Guid, CancellationTokenSource>();
         }
 
         public RepositoryCloneTicket QueueClone(string repositoryUrl)
@@ -61,9 +63,54 @@ namespace MyApp.Infrastructure.Git
             _operations[operationId] = queuedState;
             _operationKeys[normalizedKey] = operationId;
 
-            Task.Run(() => RunCloneAsync(operationId, repositoryUrl), CancellationToken.None);
+            CancellationTokenSource cancellationSource = new CancellationTokenSource();
+            _operationCancellations[operationId] = cancellationSource;
+
+            Task.Run(() => RunCloneAsync(operationId, repositoryUrl, cancellationSource), CancellationToken.None);
 
             return new RepositoryCloneTicket(operationId, repositoryUrl, false, true);
+        }
+
+        public RepositoryCloneCancellationResult CancelClone(Guid operationId)
+        {
+            CloneOperationState? operationState;
+
+            if (!_operations.TryGetValue(operationId, out operationState) || operationState == null)
+            {
+                return new RepositoryCloneCancellationResult(false, true, false, null, "Clone operation not found.");
+            }
+
+            if (operationState.State != RepositoryCloneState.Queued && operationState.State != RepositoryCloneState.Running)
+            {
+                RepositoryCloneStatus completedStatus = operationState.ToStatus();
+                return new RepositoryCloneCancellationResult(false, false, true, completedStatus, "The clone operation is already complete.");
+            }
+
+            CancellationTokenSource? cancellationSource;
+
+            if (!_operationCancellations.TryGetValue(operationId, out cancellationSource) || cancellationSource == null)
+            {
+                RepositoryCloneStatus missingCancellationStatus = operationState.ToStatus();
+                return new RepositoryCloneCancellationResult(false, false, true, missingCancellationStatus, "The clone operation is already complete.");
+            }
+
+            if (!cancellationSource.IsCancellationRequested)
+            {
+                cancellationSource.Cancel();
+            }
+
+            UpdateStatus(operationId, operationState.RepositoryUrl, RepositoryCloneState.Running, operationState.Percentage, "Canceling clone", "Cancellation requested. Removing partial files.");
+
+            CloneOperationState? refreshedState;
+
+            if (_operations.TryGetValue(operationId, out refreshedState) && refreshedState != null)
+            {
+                RepositoryCloneStatus refreshedStatus = refreshedState.ToStatus();
+                return new RepositoryCloneCancellationResult(true, false, false, refreshedStatus, "Cancellation requested.");
+            }
+
+            RepositoryCloneStatus fallbackStatus = operationState.ToStatus();
+            return new RepositoryCloneCancellationResult(true, false, false, fallbackStatus, "Cancellation requested.");
         }
 
         public bool TryGetStatus(Guid operationId, out RepositoryCloneStatus? status)
@@ -139,7 +186,7 @@ namespace MyApp.Infrastructure.Git
             return NormalizeRepositoryUrl(repositoryUrl).ToLowerInvariant();
         }
 
-        private async Task RunCloneAsync(Guid operationId, string repositoryUrl)
+        private async Task RunCloneAsync(Guid operationId, string repositoryUrl, CancellationTokenSource cancellationSource)
         {
             try
             {
@@ -148,13 +195,20 @@ namespace MyApp.Infrastructure.Git
                     UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Running, progressUpdate.Percentage, progressUpdate.Stage, progressUpdate.Details);
                 });
 
-                CloneRepositoryResult result = await _repositoryService.CloneRepositoryAsync(repositoryUrl, progress, CancellationToken.None).ConfigureAwait(false);
+                CancellationToken cancellationToken = cancellationSource.Token;
+                CloneRepositoryResult result = await _repositoryService.CloneRepositoryAsync(repositoryUrl, progress, cancellationToken).ConfigureAwait(false);
 
                 if (result.Succeeded)
                 {
                     string completionStage = "Completed";
                     string completionMessage = result.AlreadyExists ? "Repository already cloned." : string.Empty;
                     UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Completed, 100.0, completionStage, completionMessage);
+                }
+                else if (result.WasCanceled)
+                {
+                    string canceledStage = "Canceled";
+                    string canceledMessage = string.IsNullOrWhiteSpace(result.Message) ? "Repository clone was canceled." : result.Message;
+                    UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Canceled, 100.0, canceledStage, canceledMessage);
                 }
                 else
                 {
@@ -172,6 +226,12 @@ namespace MyApp.Infrastructure.Git
             {
                 Guid removed;
                 _operationKeys.TryRemove(NormalizeRepositoryKey(repositoryUrl), out removed);
+                CancellationTokenSource? removedSource;
+
+                if (_operationCancellations.TryRemove(operationId, out removedSource) && removedSource != null)
+                {
+                    removedSource.Dispose();
+                }
             }
         }
 

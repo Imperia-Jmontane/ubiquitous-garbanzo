@@ -120,6 +120,38 @@ namespace MyApp.Controllers.Api
             return Ok(response);
         }
 
+        [HttpDelete("{operationId:guid}")]
+        public ActionResult<CancelCloneResponse> CancelClone(Guid operationId)
+        {
+            RepositoryCloneCancellationResult result = _cloneCoordinator.CancelClone(operationId);
+
+            if (result.NotFound)
+            {
+                CancelCloneErrorResponse notFoundResponse = new CancelCloneErrorResponse
+                {
+                    Message = "Clone operation not found."
+                };
+                return NotFound(notFoundResponse);
+            }
+
+            if (result.AlreadyCompleted)
+            {
+                CancelCloneErrorResponse completedResponse = new CancelCloneErrorResponse
+                {
+                    Message = "The clone operation has already finished."
+                };
+                return Conflict(completedResponse);
+            }
+
+            CancelCloneResponse response = new CancelCloneResponse
+            {
+                Message = string.IsNullOrWhiteSpace(result.Message) ? "Cancellation requested." : result.Message,
+                Status = result.Status != null ? CreateStatusResponse(result.Status) : null
+            };
+
+            return Accepted(response);
+        }
+
         private static RepositoryCloneStatusResponse CreateStatusResponse(RepositoryCloneStatus status)
         {
             return new RepositoryCloneStatusResponse
@@ -155,6 +187,18 @@ namespace MyApp.Controllers.Api
         }
 
         public sealed class QueueCloneErrorResponse
+        {
+            public string Message { get; set; } = string.Empty;
+        }
+
+        public sealed class CancelCloneResponse
+        {
+            public string Message { get; set; } = string.Empty;
+
+            public RepositoryCloneStatusResponse? Status { get; set; }
+        }
+
+        public sealed class CancelCloneErrorResponse
         {
             public string Message { get; set; } = string.Empty;
         }
