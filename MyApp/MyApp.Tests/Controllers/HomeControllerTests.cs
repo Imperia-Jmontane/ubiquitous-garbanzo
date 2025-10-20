@@ -22,7 +22,7 @@ namespace MyApp.Tests.Controllers
             List<string> branches = new List<string> { "main", "develop" };
             List<LocalRepository> repositories = new List<LocalRepository>
             {
-                new LocalRepository("ubiquitous-garbanzo", "/tmp/ubiquitous-garbanzo", "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", branches)
+                new LocalRepository("ubiquitous-garbanzo", "/tmp/ubiquitous-garbanzo", "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", branches, false, false)
             };
 
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
