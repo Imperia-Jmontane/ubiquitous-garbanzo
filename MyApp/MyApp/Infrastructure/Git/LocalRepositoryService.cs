@@ -310,6 +310,11 @@ namespace MyApp.Infrastructure.Git
                     }
                 }))
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
+                    }
+
                     bool started = process.Start();
 
                     if (!started)
@@ -320,8 +325,14 @@ namespace MyApp.Infrastructure.Git
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                    Task waitForExitTask = process.WaitForExitAsync();
+                    await waitForExitTask.ConfigureAwait(false);
                     process.WaitForExit();
+
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw new OperationCanceledException(cancellationToken);
+                    }
                 }
 
                 string standardOutput = standardOutputBuilder.ToString();
