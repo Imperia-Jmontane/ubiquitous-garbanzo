@@ -49,6 +49,22 @@
                             }
                         </div>
                     </details>
+                    <div class="mt-4 flex flex-col gap-3 border-t border-white/5 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex-1 space-y-1 text-xs text-gray-300">
+                            <p>Removing the repository deletes the local files from this workspace.</p>
+                            @if (!repository.HasRemote)
+                            {
+                                <p class="text-amber-200">No remote origin was detected. This repository exists only on this machine.</p>
+                            }
+                            @if (repository.HasUnsyncedChanges)
+                            {
+                                <p class="text-amber-200">Unsynchronized local changes were detected and will be lost permanently.</p>
+                            }
+                        </div>
+                        <div class="flex justify-end sm:justify-start">
+                            <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-200 transition hover:bg-red-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400" data-repository-delete="true" data-repository-name="@repository.Name" data-has-remote="@(repository.HasRemote ? "true" : "false")" data-has-uncommitted="@(repository.HasUncommittedChanges ? "true" : "false")" data-has-unpushed="@(repository.HasUnpushedCommits ? "true" : "false")">Delete local copy</button>
+                        </div>
+                    </div>
                 </li>
             }
         </ul>
