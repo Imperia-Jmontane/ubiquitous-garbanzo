@@ -202,19 +202,7 @@ namespace MyApp.Infrastructure.Git
             RepositoryCloneProgress startProgress = new RepositoryCloneProgress(0.0, "Starting clone", string.Empty);
             progress.Report(startProgress);
 
-            CommandResult result;
-
-            try
-            {
-                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is OperationCanceledException || exception is TaskCanceledException)
-            {
-                TryDeleteDirectory(repositoryPath);
-                string cancelledMessage = "Repository clone was canceled.";
-                _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
-                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage, true);
-            }
+            CommandResult result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
 
             if (result.WasCanceled || cancellationToken.IsCancellationRequested)
             {
@@ -320,9 +308,7 @@ namespace MyApp.Infrastructure.Git
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        string canceledOutput = standardOutputBuilder.ToString();
-                        string canceledError = standardErrorBuilder.ToString();
-                        return new CommandResult(false, canceledOutput, canceledError, true);
+                        throw new OperationCanceledException(cancellationToken);
                     }
 
                     bool started = process.Start();
@@ -336,26 +322,12 @@ namespace MyApp.Infrastructure.Git
                     process.BeginErrorReadLine();
 
                     Task waitForExitTask = process.WaitForExitAsync();
-
-                    try
-                    {
-                        await waitForExitTask.ConfigureAwait(false);
-                        process.WaitForExit();
-                    }
-                    catch (Exception exception) when (exception is OperationCanceledException || exception is TaskCanceledException)
-                    {
-                        TryTerminateProcess(process);
-                        process.WaitForExit();
-                        string canceledOutput = standardOutputBuilder.ToString();
-                        string canceledError = standardErrorBuilder.ToString();
-                        return new CommandResult(false, canceledOutput, canceledError, true);
-                    }
+                    await waitForExitTask.ConfigureAwait(false);
+                    process.WaitForExit();
 
                     if (cancellationToken.IsCancellationRequested)
                     {
-                        string canceledOutput = standardOutputBuilder.ToString();
-                        string canceledError = standardErrorBuilder.ToString();
-                        return new CommandResult(false, canceledOutput, canceledError, true);
+                        throw new OperationCanceledException(cancellationToken);
                     }
                 }
 
