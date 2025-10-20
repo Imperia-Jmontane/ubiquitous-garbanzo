@@ -315,6 +315,9 @@ namespace MyApp.Infrastructure.Git
                         }
                     }))
                     {
+                        string canceledOutput = standardOutputBuilder.ToString();
+                        string canceledError = standardErrorBuilder.ToString();
+                        return new CommandResult(false, canceledOutput, canceledError, true);
                     }
                 }))
                 {
