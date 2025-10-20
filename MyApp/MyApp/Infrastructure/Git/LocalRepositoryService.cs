@@ -289,19 +289,31 @@ namespace MyApp.Infrastructure.Git
                     }
                 };
 
-                using (cancellationToken.Register(() =>
+                TaskCompletionSource<bool> exitCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                EventHandler exitHandler = (sender, args) => exitCompletion.TrySetResult(true);
+                process.EnableRaisingEvents = true;
+                process.Exited += exitHandler;
+
+                try
                 {
-                    try
+                    using (cancellationToken.Register(() =>
                     {
-                        if (!process.HasExited)
+                        exitCompletion.TrySetCanceled(cancellationToken);
+
+                        try
                         {
-                            TryTerminateProcess(process);
+                            if (!process.HasExited)
+                            {
+                                TryTerminateProcess(process);
+                            }
                         }
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
-                    catch (NotSupportedException)
+                        catch (InvalidOperationException)
+                        {
+                        }
+                        catch (NotSupportedException)
+                        {
+                        }
+                    }))
                     {
                     }
                 }))
@@ -318,8 +330,10 @@ namespace MyApp.Infrastructure.Git
                         return new CommandResult(false, string.Empty, "Unable to start git process.", false);
                     }
 
-                    process.BeginOutputReadLine();
-                    process.BeginErrorReadLine();
+                        if (!started)
+                        {
+                            return new CommandResult(false, string.Empty, "Unable to start git process.", false);
+                        }
 
                     Task waitForExitTask = process.WaitForExitAsync();
                     await waitForExitTask.ConfigureAwait(false);

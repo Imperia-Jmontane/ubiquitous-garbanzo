@@ -84,6 +84,32 @@ namespace MyApp.Tests.Infrastructure.Git
         }
 
         [Fact]
+        public async Task CloneRepositoryAsync_ShouldReturnCanceledResultWhenTokenAlreadyCanceled()
+        {
+            string cloneRoot = Path.Combine(_rootPath, "canceled-clones");
+            Directory.CreateDirectory(cloneRoot);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = cloneRoot
+            };
+
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+
+            string sourceRepositoryPath = Path.Combine(_rootPath, "source-repository-canceled");
+            CreateRepository(sourceRepositoryPath, new List<string>(), string.Empty);
+
+            CancellationTokenSource cancellationSource = new CancellationTokenSource();
+            cancellationSource.Cancel();
+
+            CloneRepositoryResult result = await service.CloneRepositoryAsync(sourceRepositoryPath, null, cancellationSource.Token);
+
+            Assert.False(result.Succeeded);
+            Assert.True(result.WasCanceled);
+            Assert.False(result.AlreadyExists);
+        }
+
+        [Fact]
         public void GetRepositories_ShouldReturnRepositoriesWithBranches()
         {
             string firstRepositoryPath = Path.Combine(_rootPath, "ubiquitous-garbanzo");
