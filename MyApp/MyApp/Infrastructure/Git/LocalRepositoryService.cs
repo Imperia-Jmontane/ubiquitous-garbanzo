@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Globalization;
+using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -68,7 +69,8 @@ namespace MyApp.Infrastructure.Git
                 {
                     IReadOnlyCollection<string> branches = GetBranches(repositoryDirectory.FullName);
                     string remoteUrl = GetRemoteUrl(repositoryDirectory.FullName);
-                    LocalRepository repository = new LocalRepository(repositoryDirectory.Name, repositoryDirectory.FullName, remoteUrl, branches);
+                    RepositorySyncInfo syncInfo = GetRepositorySyncInfo(repositoryDirectory.FullName);
+                    LocalRepository repository = new LocalRepository(repositoryDirectory.Name, repositoryDirectory.FullName, remoteUrl, branches, syncInfo.HasUncommittedChanges, syncInfo.HasUnpushedCommits);
                     repositories.Add(repository);
                 }
                 catch (Exception exception)
@@ -92,6 +94,63 @@ namespace MyApp.Infrastructure.Git
         {
             IProgress<RepositoryCloneProgress> safeProgress = progress ?? new NullRepositoryCloneProgress();
             return CloneRepositoryInternalAsync(repositoryUrl, safeProgress, cancellationToken);
+        }
+
+        public DeleteRepositoryResult DeleteRepository(string repositoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryPath))
+            {
+                return new DeleteRepositoryResult(false, "The repository path must be provided.");
+            }
+
+            if (string.IsNullOrWhiteSpace(_options.RootPath))
+            {
+                string message = "Repository root path is not configured.";
+                _logger.LogWarning(message);
+                return new DeleteRepositoryResult(false, message);
+            }
+
+            string fullRootPath;
+            string candidateRepositoryPath = repositoryPath;
+
+            try
+            {
+                fullRootPath = Path.GetFullPath(_options.RootPath);
+
+                if (!Path.IsPathRooted(candidateRepositoryPath))
+                {
+                    candidateRepositoryPath = Path.Combine(fullRootPath, candidateRepositoryPath);
+                }
+
+                candidateRepositoryPath = Path.GetFullPath(candidateRepositoryPath);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException || exception is PathTooLongException || exception is SecurityException)
+            {
+                _logger.LogWarning(exception, "Invalid repository path provided for deletion: {RepositoryPath}", repositoryPath);
+                return new DeleteRepositoryResult(false, "The repository path is invalid.");
+            }
+
+            if (!candidateRepositoryPath.StartsWith(fullRootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Repository path {RepositoryPath} is outside of the configured storage root.", candidateRepositoryPath);
+                return new DeleteRepositoryResult(false, "The repository path is invalid.");
+            }
+
+            if (!Directory.Exists(candidateRepositoryPath))
+            {
+                return new DeleteRepositoryResult(false, "The repository could not be found.");
+            }
+
+            try
+            {
+                Directory.Delete(candidateRepositoryPath, true);
+                return new DeleteRepositoryResult(true, string.Empty);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                _logger.LogError(exception, "Unable to delete repository at {RepositoryPath}", candidateRepositoryPath);
+                return new DeleteRepositoryResult(false, "Unable to delete the repository. Please try again.");
+            }
         }
 
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
@@ -154,7 +213,15 @@ namespace MyApp.Infrastructure.Git
                 TryDeleteDirectory(repositoryPath);
                 string cancelledMessage = "Repository clone was canceled.";
                 _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
-                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage);
+                return new CloneRepositoryResult(false, false, string.Empty, cancelledMessage, true);
+            }
+
+            if (result.Canceled)
+            {
+                TryDeleteDirectory(repositoryPath);
+                string canceledMessage = "Repository clone was canceled.";
+                _logger.LogWarning("Git clone canceled for {RepositoryUrl}", repositoryUrl);
+                return new CloneRepositoryResult(false, false, string.Empty, canceledMessage, true);
             }
 
             if (!result.Succeeded)
@@ -261,9 +328,41 @@ namespace MyApp.Infrastructure.Git
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-                    process.WaitForExit();
+                    try
+                    {
+                        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            TryTerminateProcess(process);
+                        }
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+                    catch (NotSupportedException)
+                    {
+                    }
+
+                    try
+                    {
+                        process.WaitForExit();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+
+                    string canceledOutput = standardOutputBuilder.ToString();
+                    string canceledError = standardErrorBuilder.ToString();
+                    return new CommandResult(false, canceledOutput, canceledError, true);
                 }
+
+                process.WaitForExit();
+            }
 
                 string standardOutput = standardOutputBuilder.ToString();
                 string standardError = standardErrorBuilder.ToString();
@@ -515,10 +614,16 @@ namespace MyApp.Infrastructure.Git
         private readonly struct CommandResult
         {
             public CommandResult(bool succeeded, string standardOutput, string standardError)
+                : this(succeeded, standardOutput, standardError, false)
+            {
+            }
+
+            public CommandResult(bool succeeded, string standardOutput, string standardError, bool canceled)
             {
                 Succeeded = succeeded;
                 StandardOutput = standardOutput;
                 StandardError = standardError;
+                Canceled = canceled;
             }
 
             public bool Succeeded { get; }
@@ -526,6 +631,70 @@ namespace MyApp.Infrastructure.Git
             public string StandardOutput { get; }
 
             public string StandardError { get; }
+
+            public bool Canceled { get; }
+        }
+
+        private readonly struct RepositorySyncInfo
+        {
+            public RepositorySyncInfo(bool hasUncommittedChanges, bool hasUnpushedCommits)
+            {
+                HasUncommittedChanges = hasUncommittedChanges;
+                HasUnpushedCommits = hasUnpushedCommits;
+            }
+
+            public bool HasUncommittedChanges { get; }
+
+            public bool HasUnpushedCommits { get; }
+        }
+
+        private static RepositorySyncInfo GetRepositorySyncInfo(string repositoryPath)
+        {
+            try
+            {
+                string[] arguments = new[] { "status", "--porcelain=1", "--branch" };
+                CommandResult result = ExecuteGitCommand(repositoryPath, arguments, TimeSpan.FromSeconds(10));
+
+                if (!result.Succeeded)
+                {
+                    return new RepositorySyncInfo(false, false);
+                }
+
+                bool hasUncommittedChanges = false;
+                bool hasUnpushedCommits = false;
+                string[] lines = result.StandardOutput.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                for (int index = 0; index < lines.Length; index++)
+                {
+                    string line = lines[index];
+
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        continue;
+                    }
+
+                    if (index == 0 && line.StartsWith("##", StringComparison.Ordinal))
+                    {
+                        string normalized = line.ToLowerInvariant();
+
+                        if (normalized.Contains("ahead"))
+                        {
+                            hasUnpushedCommits = true;
+                        }
+
+                        continue;
+                    }
+
+                    hasUncommittedChanges = true;
+                    break;
+                }
+
+                return new RepositorySyncInfo(hasUncommittedChanges, hasUnpushedCommits);
+            }
+            catch (Exception)
+            {
+                return new RepositorySyncInfo(false, false);
+            }
         }
     }
 }

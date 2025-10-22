@@ -120,6 +120,27 @@ namespace MyApp.Controllers.Api
             return Ok(response);
         }
 
+        [HttpDelete("{operationId:guid}")]
+        public ActionResult<RepositoryCloneStatusResponse> CancelClone(Guid operationId)
+        {
+            bool canceled = _cloneCoordinator.CancelClone(operationId);
+
+            if (!canceled)
+            {
+                return NotFound();
+            }
+
+            RepositoryCloneStatus? status;
+
+            if (_cloneCoordinator.TryGetStatus(operationId, out status) && status != null)
+            {
+                RepositoryCloneStatusResponse response = CreateStatusResponse(status);
+                return Accepted(response);
+            }
+
+            return Accepted();
+        }
+
         private static RepositoryCloneStatusResponse CreateStatusResponse(RepositoryCloneStatus status)
         {
             return new RepositoryCloneStatusResponse

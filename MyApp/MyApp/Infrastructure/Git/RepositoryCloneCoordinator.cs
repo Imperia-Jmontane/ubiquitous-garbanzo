@@ -14,7 +14,7 @@ namespace MyApp.Infrastructure.Git
     {
         private readonly ILocalRepositoryService _repositoryService;
         private readonly ILogger<RepositoryCloneCoordinator> _logger;
-        private readonly ConcurrentDictionary<Guid, CloneOperationState> _operations;
+        private readonly ConcurrentDictionary<Guid, CloneOperationRegistration> _operations;
         private readonly ConcurrentDictionary<string, Guid> _operationKeys;
 
         public RepositoryCloneCoordinator(ILocalRepositoryService repositoryService, ILogger<RepositoryCloneCoordinator> logger)
@@ -31,7 +31,7 @@ namespace MyApp.Infrastructure.Git
 
             _repositoryService = repositoryService;
             _logger = logger;
-            _operations = new ConcurrentDictionary<Guid, CloneOperationState>();
+            _operations = new ConcurrentDictionary<Guid, CloneOperationRegistration>();
             _operationKeys = new ConcurrentDictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -58,10 +58,12 @@ namespace MyApp.Infrastructure.Git
 
             Guid operationId = Guid.NewGuid();
             CloneOperationState queuedState = new CloneOperationState(operationId, repositoryUrl, RepositoryCloneState.Queued, 0.0, "Queued", string.Empty, DateTimeOffset.UtcNow);
-            _operations[operationId] = queuedState;
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            CloneOperationRegistration registration = new CloneOperationRegistration(queuedState, cancellationTokenSource);
+            _operations[operationId] = registration;
             _operationKeys[normalizedKey] = operationId;
 
-            Task.Run(() => RunCloneAsync(operationId, repositoryUrl), CancellationToken.None);
+            Task.Run(() => RunCloneAsync(operationId, repositoryUrl, cancellationTokenSource), CancellationToken.None);
 
             return new RepositoryCloneTicket(operationId, repositoryUrl, false, true);
         }
@@ -69,11 +71,11 @@ namespace MyApp.Infrastructure.Git
         public bool TryGetStatus(Guid operationId, out RepositoryCloneStatus? status)
         {
             status = null;
-            CloneOperationState? operationState;
+            CloneOperationRegistration? registration;
 
-            if (_operations.TryGetValue(operationId, out operationState) && operationState != null)
+            if (_operations.TryGetValue(operationId, out registration) && registration != null)
             {
-                status = operationState.ToStatus();
+                status = registration.ToStatus();
                 return true;
             }
 
@@ -84,15 +86,49 @@ namespace MyApp.Infrastructure.Git
         {
             List<RepositoryCloneStatus> statuses = new List<RepositoryCloneStatus>();
 
-            foreach (KeyValuePair<Guid, CloneOperationState> pair in _operations)
+            foreach (KeyValuePair<Guid, CloneOperationRegistration> pair in _operations)
             {
-                if (pair.Value.State == RepositoryCloneState.Queued || pair.Value.State == RepositoryCloneState.Running)
+                RepositoryCloneStatus snapshot = pair.Value.ToStatus();
+
+                if (snapshot.State == RepositoryCloneState.Queued || snapshot.State == RepositoryCloneState.Running)
                 {
-                    statuses.Add(pair.Value.ToStatus());
+                    statuses.Add(snapshot);
                 }
             }
 
             return statuses;
+        }
+
+        public bool CancelClone(Guid operationId)
+        {
+            CloneOperationRegistration? registration;
+
+            if (!_operations.TryGetValue(operationId, out registration) || registration == null)
+            {
+                return false;
+            }
+
+            CloneOperationState currentState = registration.GetStateSnapshot();
+
+            if (currentState.State == RepositoryCloneState.Completed || currentState.State == RepositoryCloneState.Failed || currentState.State == RepositoryCloneState.Canceled)
+            {
+                return false;
+            }
+
+            UpdateStatus(operationId, currentState.RepositoryUrl, RepositoryCloneState.Running, currentState.Percentage, "Canceling clone", "Stopping repository clone...");
+
+            try
+            {
+                if (!registration.CancellationTokenSource.IsCancellationRequested)
+                {
+                    registration.CancellationTokenSource.Cancel();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            return true;
         }
 
         private bool RepositoryAlreadyCloned(string repositoryUrl)
@@ -139,7 +175,7 @@ namespace MyApp.Infrastructure.Git
             return NormalizeRepositoryUrl(repositoryUrl).ToLowerInvariant();
         }
 
-        private async Task RunCloneAsync(Guid operationId, string repositoryUrl)
+        private async Task RunCloneAsync(Guid operationId, string repositoryUrl, CancellationTokenSource cancellationTokenSource)
         {
             try
             {
@@ -148,7 +184,7 @@ namespace MyApp.Infrastructure.Git
                     UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Running, progressUpdate.Percentage, progressUpdate.Stage, progressUpdate.Details);
                 });
 
-                CloneRepositoryResult result = await _repositoryService.CloneRepositoryAsync(repositoryUrl, progress, CancellationToken.None).ConfigureAwait(false);
+                CloneRepositoryResult result = await _repositoryService.CloneRepositoryAsync(repositoryUrl, progress, cancellationTokenSource.Token).ConfigureAwait(false);
 
                 if (result.Succeeded)
                 {
@@ -156,12 +192,23 @@ namespace MyApp.Infrastructure.Git
                     string completionMessage = result.AlreadyExists ? "Repository already cloned." : string.Empty;
                     UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Completed, 100.0, completionStage, completionMessage);
                 }
+                else if (result.Canceled)
+                {
+                    string canceledStage = "Canceled";
+                    string canceledMessage = string.IsNullOrWhiteSpace(result.Message) ? "Repository clone was canceled." : result.Message;
+                    UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Canceled, 100.0, canceledStage, canceledMessage);
+                }
                 else
                 {
                     string failureStage = "Failed";
                     string failureMessage = string.IsNullOrWhiteSpace(result.Message) ? "Failed to clone repository." : result.Message;
                     UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Failed, 100.0, failureStage, failureMessage);
                 }
+            }
+            catch (OperationCanceledException exception)
+            {
+                _logger.LogInformation(exception, "Clone operation canceled for {RepositoryUrl}", repositoryUrl);
+                UpdateStatus(operationId, repositoryUrl, RepositoryCloneState.Canceled, 100.0, "Canceled", "Repository clone was canceled.");
             }
             catch (Exception exception)
             {
@@ -180,10 +227,17 @@ namespace MyApp.Infrastructure.Git
             string safeStage = stage ?? string.Empty;
             string safeMessage = message ?? string.Empty;
 
-            _operations.AddOrUpdate(
-                operationId,
-                id => new CloneOperationState(operationId, repositoryUrl, state, percentage, safeStage, safeMessage, DateTimeOffset.UtcNow),
-                (id, existing) => existing.With(state, percentage, safeStage, safeMessage));
+            CloneOperationRegistration? registration;
+
+            if (_operations.TryGetValue(operationId, out registration) && registration != null)
+            {
+                registration.Update(state, percentage, safeStage, safeMessage);
+                return;
+            }
+
+            CloneOperationState createdState = new CloneOperationState(operationId, repositoryUrl, state, percentage, safeStage, safeMessage, DateTimeOffset.UtcNow);
+            CloneOperationRegistration createdRegistration = new CloneOperationRegistration(createdState, new CancellationTokenSource());
+            _operations[operationId] = createdRegistration;
         }
 
         private sealed class CloneOperationState
@@ -223,6 +277,45 @@ namespace MyApp.Infrastructure.Git
             public RepositoryCloneStatus ToStatus()
             {
                 return new RepositoryCloneStatus(OperationId, RepositoryUrl, State, Percentage, Stage, Message, LastUpdatedUtc);
+            }
+        }
+
+        private sealed class CloneOperationRegistration
+        {
+            private CloneOperationState _state;
+            private readonly object _syncRoot;
+
+            public CloneOperationRegistration(CloneOperationState state, CancellationTokenSource cancellationTokenSource)
+            {
+                _state = state;
+                CancellationTokenSource = cancellationTokenSource;
+                _syncRoot = new object();
+            }
+
+            public CancellationTokenSource CancellationTokenSource { get; }
+
+            public CloneOperationState GetStateSnapshot()
+            {
+                lock (_syncRoot)
+                {
+                    return _state;
+                }
+            }
+
+            public RepositoryCloneStatus ToStatus()
+            {
+                lock (_syncRoot)
+                {
+                    return _state.ToStatus();
+                }
+            }
+
+            public void Update(RepositoryCloneState state, double percentage, string stage, string message)
+            {
+                lock (_syncRoot)
+                {
+                    _state = _state.With(state, percentage, stage, message);
+                }
             }
         }
     }

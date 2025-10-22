@@ -5,11 +5,17 @@ namespace MyApp.Application.Abstractions
     public sealed class CloneRepositoryResult
     {
         public CloneRepositoryResult(bool succeeded, bool alreadyExists, string repositoryPath, string message)
+            : this(succeeded, alreadyExists, repositoryPath, message, false)
+        {
+        }
+
+        public CloneRepositoryResult(bool succeeded, bool alreadyExists, string repositoryPath, string message, bool canceled)
         {
             Succeeded = succeeded;
             AlreadyExists = alreadyExists;
             RepositoryPath = repositoryPath ?? string.Empty;
             Message = message ?? string.Empty;
+            Canceled = canceled;
         }
 
         public bool Succeeded { get; }
@@ -19,5 +25,7 @@ namespace MyApp.Application.Abstractions
         public string RepositoryPath { get; }
 
         public string Message { get; }
+
+        public bool Canceled { get; }
     }
 }
