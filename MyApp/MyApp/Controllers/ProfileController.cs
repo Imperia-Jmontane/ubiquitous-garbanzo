@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using MyApp.Application.GitHubOAuth.DTOs;
 using MyApp.Application.GitHubOAuth.Queries.GetGitHubOAuthStatus;
 using MyApp.Application.GitHubOAuth.Queries.GetGitHubAccountDetails;
+using MyApp.Application.GitHubPersonalAccessToken.DTOs;
+using MyApp.Application.GitHubPersonalAccessToken.Queries.GetGitHubPersonalAccessTokenStatus;
 using MyApp.Models.Profile;
 
 namespace MyApp.Controllers
@@ -26,6 +28,7 @@ namespace MyApp.Controllers
             GitHubOAuthStatusDto status = await mediator.Send(new GetGitHubOAuthStatusQuery(), cancellationToken);
             GetGitHubAccountDetailsQuery accountDetailsQuery = new GetGitHubAccountDetailsQuery(DemoUserId);
             GitHubAccountDetailsDto accountDetails = await mediator.Send(accountDetailsQuery, cancellationToken);
+            GitHubPersonalAccessTokenStatusDto patStatus = await mediator.Send(new GetGitHubPersonalAccessTokenStatusQuery(), cancellationToken);
             string redirectUri = Url.Action("GitHubCallback", "Auth", null, Request.Scheme) ?? string.Empty;
             ProfileViewModel viewModel = new ProfileViewModel
             {
@@ -34,7 +37,8 @@ namespace MyApp.Controllers
                 GitHubScopes = new List<string>(status.Scopes),
                 UserId = DemoUserId,
                 GitHubRedirectUri = redirectUri,
-                GitHubAccount = CreateGitHubAccountViewModel(accountDetails)
+                GitHubAccount = CreateGitHubAccountViewModel(accountDetails),
+                PersonalAccessToken = CreatePersonalAccessTokenViewModel(patStatus)
             };
 
             return View(viewModel);
@@ -85,6 +89,18 @@ namespace MyApp.Controllers
             {
                 viewModel.Error = details.ProfileFetchError;
             }
+
+            return viewModel;
+        }
+
+        private static GitHubPersonalAccessTokenViewModel CreatePersonalAccessTokenViewModel(GitHubPersonalAccessTokenStatusDto status)
+        {
+            GitHubPersonalAccessTokenViewModel viewModel = new GitHubPersonalAccessTokenViewModel
+            {
+                IsConfigured = status.IsConfigured,
+                GenerationUrl = status.GenerationUrl,
+                RequiredPermissions = new List<string>(status.RequiredPermissions)
+            };
 
             return viewModel;
         }

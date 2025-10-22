@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeLevelSwitcher();
     initializeFlowchartTabs();
     initializeGitHubLinking();
+    initializeGitHubPersonalAccessTokenForm();
 });
 
 let activeFlowchartTabManager = null;
@@ -497,6 +498,170 @@ const initializeGitHubLinking = () => {
             .catch(() => {
                 isProcessing = false;
                 button.removeAttribute("disabled");
+            });
+    });
+};
+
+const initializeGitHubPersonalAccessTokenForm = () => {
+    const container = document.querySelector("[data-github-pat]");
+    if (container === null) {
+        return;
+    }
+
+    const form = container.querySelector("[data-github-pat-form]");
+    const input = container.querySelector("[data-github-pat-input]");
+    const status = container.querySelector("[data-github-pat-status]");
+    const submit = container.querySelector("[data-github-pat-submit]");
+    const badge = container.querySelector("[data-github-pat-state]");
+    const indicator = container.querySelector("[data-github-pat-indicator]");
+    const label = container.querySelector("[data-github-pat-label]");
+
+    if (form === null || input === null || status === null || submit === null) {
+        return;
+    }
+
+    const endpoint = container.getAttribute("data-github-pat-endpoint") ?? "/api/github/personal-access-token";
+    const statusEndpoint = container.getAttribute("data-github-pat-status-endpoint") ?? "";
+
+    const statusStyles = ["text-gray-400", "text-emerald-300", "text-rose-300", "text-indigo-200"];
+
+    const setStatus = (message, style) => {
+        status.textContent = message;
+        statusStyles.forEach((className) => status.classList.remove(className));
+        status.classList.add(style);
+    };
+
+    const setSubmittingState = (isSubmitting) => {
+        if (isSubmitting === true) {
+            submit.setAttribute("disabled", "disabled");
+            submit.classList.add("opacity-70", "cursor-not-allowed");
+            input.setAttribute("disabled", "disabled");
+        }
+        else {
+            submit.removeAttribute("disabled");
+            submit.classList.remove("opacity-70", "cursor-not-allowed");
+            input.removeAttribute("disabled");
+        }
+    };
+
+    const updateBadge = (isConfigured) => {
+        if (badge === null || indicator === null) {
+            return;
+        }
+
+        badge.classList.remove("bg-emerald-500/10", "text-emerald-300", "bg-amber-500/10", "text-amber-200");
+        indicator.classList.remove("bg-emerald-400", "bg-amber-400");
+
+        if (label !== null) {
+            label.textContent = isConfigured === true ? "Configurado" : "Pendiente";
+        }
+
+        if (isConfigured === true) {
+            badge.classList.add("bg-emerald-500/10", "text-emerald-300");
+            indicator.classList.add("bg-emerald-400");
+        }
+        else {
+            badge.classList.add("bg-amber-500/10", "text-amber-200");
+            indicator.classList.add("bg-amber-400");
+        }
+    };
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const token = input.value.trim();
+
+        if (token.length === 0) {
+            setStatus("Ingresa un token válido antes de guardarlo.", "text-rose-300");
+            return;
+        }
+
+        setSubmittingState(true);
+        setStatus("Guardando token...", "text-indigo-200");
+
+        fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ token: token })
+        })
+            .then(async (response) => {
+                if (response.ok) {
+                    return;
+                }
+
+                if (response.status === 400) {
+                    let detailMessage = "No se pudo validar el token enviado.";
+
+                    try {
+                        const problem = await response.json();
+                        if (problem !== null && typeof problem === "object") {
+                            if (typeof problem.detail === "string" && problem.detail.length > 0) {
+                                detailMessage = problem.detail;
+                            }
+                            else if (problem.errors !== undefined && problem.errors !== null) {
+                                const errorMessages = [];
+                                Object.values(problem.errors).forEach((value) => {
+                                    if (Array.isArray(value)) {
+                                        value.forEach((item) => {
+                                            if (typeof item === "string") {
+                                                errorMessages.push(item);
+                                            }
+                                        });
+                                    }
+                                });
+
+                                if (errorMessages.length > 0) {
+                                    detailMessage = errorMessages.join(" ");
+                                }
+                            }
+                        }
+                    }
+                    catch (error) {
+                        // Ignore JSON parsing errors
+                    }
+
+                    setStatus(detailMessage, "text-rose-300");
+                    throw new Error("validation");
+                }
+
+                setStatus("Ocurrió un error al guardar el token personal.", "text-rose-300");
+                throw new Error("server");
+            })
+            .then(async () => {
+                input.value = "";
+                setStatus("Token guardado correctamente.", "text-emerald-300");
+                updateBadge(true);
+
+                if (statusEndpoint.length === 0) {
+                    return;
+                }
+
+                try {
+                    const statusResponse = await fetch(statusEndpoint, { method: "GET" });
+                    if (statusResponse.ok) {
+                        const payload = await statusResponse.json();
+                        if (payload !== null && typeof payload === "object" && typeof payload.isConfigured === "boolean") {
+                            updateBadge(payload.isConfigured === true);
+                        }
+                    }
+                }
+                catch (error) {
+                    // Ignore refresh errors
+                }
+            })
+            .catch((error) => {
+                if (error instanceof Error) {
+                    if (error.message === "validation" || error.message === "server") {
+                        return;
+                    }
+                }
+
+                setStatus("Ocurrió un error inesperado al guardar el token.", "text-rose-300");
+            })
+            .finally(() => {
+                setSubmittingState(false);
             });
     });
 };

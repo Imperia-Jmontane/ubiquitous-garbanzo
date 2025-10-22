@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using Moq;
+using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Infrastructure.GitHub;
-using MyApp.Infrastructure.Secrets;
 using Xunit;
 
 namespace MyApp.Tests.Infrastructure.GitHub

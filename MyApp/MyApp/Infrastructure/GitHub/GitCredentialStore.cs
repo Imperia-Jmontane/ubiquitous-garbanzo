@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Models;
-using MyApp.Infrastructure.Secrets;
 
 namespace MyApp.Infrastructure.GitHub
 {

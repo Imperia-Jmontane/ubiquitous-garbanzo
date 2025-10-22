@@ -79,6 +79,63 @@
             </div>
         </div>
 
+        <div class="space-y-4 rounded-3xl border border-white/10 bg-gray-900/50 p-4"
+             data-github-pat
+             data-github-pat-endpoint="/api/github/personal-access-token"
+             data-github-pat-status-endpoint="/api/github/personal-access-token/status">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="space-y-1">
+                    <h2 class="text-lg font-semibold text-white">Personal Access Token (PAT)</h2>
+                    <p class="text-sm text-gray-300">Necesario para clonar repositorios privados mediante HTTPS.</p>
+                </div>
+                <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold @(Model.PersonalAccessToken.IsConfigured ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-200")"
+                      data-github-pat-state>
+                    <span class="size-2 rounded-full @(Model.PersonalAccessToken.IsConfigured ? "bg-emerald-400" : "bg-amber-400")" data-github-pat-indicator></span>
+                    <span data-github-pat-label>@(Model.PersonalAccessToken.IsConfigured ? "Configurado" : "Pendiente")</span>
+                </span>
+            </div>
+
+            <div class="space-y-3 rounded-2xl border border-white/10 bg-gray-900/70 p-4">
+                <p class="text-sm text-gray-300">Sigue estos pasos para generar el token y compartirlo con la aplicación:</p>
+                <ol class="list-decimal space-y-2 pl-5 text-sm text-gray-300">
+                    <li>
+                        Ingresa a <a href="@Model.PersonalAccessToken.GenerationUrl" class="text-indigo-300 hover:text-indigo-200" target="_blank" rel="noopener noreferrer">la página de tokens de GitHub</a> y selecciona <span class="font-medium text-gray-100">Generate new token</span>.
+                    </li>
+                    <li>Elige <span class="font-medium text-gray-100">Fine-grained token</span> (recomendado) o un <span class="font-medium text-gray-100">Classic token</span> si prefieres los scopes tradicionales.</li>
+                    <li>Concede al menos los siguientes permisos:</li>
+                </ol>
+                <ul class="list-disc space-y-1 pl-5 text-sm text-gray-300">
+                    @foreach (string permission in Model.PersonalAccessToken.RequiredPermissions)
+                    {
+                        <li>@permission</li>
+                    }
+                </ul>
+                <p class="text-sm text-gray-300">Una vez generado, copia el token porque GitHub solo lo muestra una vez.</p>
+            </div>
+
+            <form class="space-y-3" data-github-pat-form>
+                <div>
+                    <label for="github-personal-access-token" class="block text-sm font-medium text-gray-200">Pega aquí el token generado</label>
+                    <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <input id="github-personal-access-token"
+                               name="github-personal-access-token"
+                               type="password"
+                               autocomplete="off"
+                               class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-inner shadow-black/30 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                               placeholder="github_pat_..."
+                               data-github-pat-input />
+                        <button type="submit"
+                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-900/40 transition hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                data-github-pat-submit>
+                            Guardar token
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-400">Almacenar el PAT permite que el backend pueda clonar repositorios privados usando HTTPS. Se cifra con Data Protection antes de guardarse.</p>
+                <p class="text-xs text-gray-400" data-github-pat-status></p>
+            </form>
+        </div>
+
         <div class="rounded-2xl border border-white/10 bg-gray-900/50 p-4">
             <div class="flex flex-wrap items-center gap-4">
                 @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.AvatarUrl))
