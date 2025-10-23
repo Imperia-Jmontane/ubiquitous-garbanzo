@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MyApp.Infrastructure.Secrets
+namespace MyApp.Application.Abstractions
 {
     public interface ISecretProvider
     {

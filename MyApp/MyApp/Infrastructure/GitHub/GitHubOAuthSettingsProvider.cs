@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using MyApp.Application.Abstractions;
 using MyApp.Application.GitHubOAuth.Configuration;
-using MyApp.Infrastructure.Secrets;
 
 namespace MyApp.Infrastructure.GitHub
 {
