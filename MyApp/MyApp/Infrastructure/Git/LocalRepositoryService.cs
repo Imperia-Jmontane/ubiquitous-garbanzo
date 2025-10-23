@@ -262,6 +262,7 @@ namespace MyApp.Infrastructure.Git
             StringBuilder standardOutputBuilder = new StringBuilder();
             StringBuilder standardErrorBuilder = new StringBuilder();
             double lastPercentage = 0.0;
+            int exitCode = -1;
 
             using (Process process = new Process())
             {
@@ -301,8 +302,13 @@ namespace MyApp.Infrastructure.Git
                     }
                 };
 
-                using (cancellationToken.Register(() =>
+                TaskCompletionSource<bool> cancellationCompletion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                bool cancellationRequested = cancellationToken.IsCancellationRequested;
+
+                using (CancellationTokenRegistration registration = cancellationToken.Register(() =>
                 {
+                    cancellationRequested = true;
+
                     try
                     {
                         if (!process.HasExited)
@@ -316,8 +322,15 @@ namespace MyApp.Infrastructure.Git
                     catch (NotSupportedException)
                     {
                     }
+
+                    cancellationCompletion.TrySetResult(true);
                 }))
                 {
+                    if (cancellationRequested)
+                    {
+                        return new CommandResult(false, string.Empty, "Repository clone was canceled before starting.", true);
+                    }
+
                     bool started = process.Start();
 
                     if (!started)
@@ -328,48 +341,29 @@ namespace MyApp.Infrastructure.Git
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    try
+                    Task waitForExitTask = process.WaitForExitAsync();
+                    Task completedTask = await Task.WhenAny(waitForExitTask, cancellationCompletion.Task).ConfigureAwait(false);
+
+                    if (completedTask == cancellationCompletion.Task)
                     {
-                        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    try
-                    {
-                        if (!process.HasExited)
-                        {
-                            TryTerminateProcess(process);
-                        }
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
-                    catch (NotSupportedException)
-                    {
+                        await waitForExitTask.ConfigureAwait(false);
+                        string canceledOutput = standardOutputBuilder.ToString();
+                        string canceledError = standardErrorBuilder.ToString();
+                        return new CommandResult(false, canceledOutput, canceledError, true);
                     }
 
-                    try
-                    {
-                        process.WaitForExit();
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
-
-                    string canceledOutput = standardOutputBuilder.ToString();
-                    string canceledError = standardErrorBuilder.ToString();
-                    return new CommandResult(false, canceledOutput, canceledError, true);
+                    await waitForExitTask.ConfigureAwait(false);
                 }
 
                 process.WaitForExit();
+                exitCode = process.ExitCode;
             }
 
-                string standardOutput = standardOutputBuilder.ToString();
-                string standardError = standardErrorBuilder.ToString();
-                bool success = process.ExitCode == 0;
+            string standardOutput = standardOutputBuilder.ToString();
+            string standardError = standardErrorBuilder.ToString();
+            bool success = exitCode == 0;
 
-                return new CommandResult(success, standardOutput, standardError);
-            }
+            return new CommandResult(success, standardOutput, standardError);
         }
 
         private static bool TryParseCloneProgress(string line, out string stage, out double? percentage)
