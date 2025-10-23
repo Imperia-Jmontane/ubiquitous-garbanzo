@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
@@ -98,9 +99,31 @@ namespace MyApp.Controllers
             GitHubPersonalAccessTokenViewModel viewModel = new GitHubPersonalAccessTokenViewModel
             {
                 IsConfigured = status.IsConfigured,
+                TokenStored = status.TokenStored,
                 GenerationUrl = status.GenerationUrl,
                 RequiredPermissions = new List<string>(status.RequiredPermissions)
             };
+
+            if (status.Validation != null)
+            {
+                GitHubPersonalAccessTokenValidationViewModel validationViewModel = new GitHubPersonalAccessTokenValidationViewModel
+                {
+                    TokenAccepted = status.Validation.TokenAccepted,
+                    HasRequiredPermissions = status.Validation.HasRequiredPermissions,
+                    IsFineGrained = status.Validation.IsFineGrained,
+                    RepositoryAccessConfirmed = status.Validation.RepositoryAccessConfirmed,
+                    Login = status.Validation.Login,
+                    FailureReason = status.Validation.FailureReason,
+                    GrantedPermissions = new List<string>(status.Validation.GrantedPermissions),
+                    MissingPermissions = new List<string>(status.Validation.MissingPermissions),
+                    Warnings = new List<string>(status.Validation.Warnings)
+                };
+
+                viewModel.Validation = validationViewModel;
+            }
+
+            JsonSerializerOptions serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            viewModel.ValidationJson = JsonSerializer.Serialize(viewModel.Validation, serializerOptions);
 
             return viewModel;
         }

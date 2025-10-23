@@ -156,6 +156,14 @@ namespace MyApp
                 client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MyApp", "1.0"));
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
             });
+            builder.Services.AddHttpClient<IGitHubPersonalAccessTokenInspector, GitHubPersonalAccessTokenInspector>(client =>
+            {
+                client.BaseAddress = new Uri("https://api.github.com/", UriKind.Absolute);
+                client.DefaultRequestHeaders.UserAgent.Clear();
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MyApp", "1.0"));
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+                client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+            });
             builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
             builder.Services.AddScoped<IGitHubOAuthStateRepository, GitHubOAuthStateRepository>();
             builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();

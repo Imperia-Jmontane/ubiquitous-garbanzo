@@ -1,4 +1,5 @@
 @model MyApp.Models.Profile.ProfileViewModel
+@using System.Linq
 
 @{
     ViewData["Title"] = "Perfil";
@@ -82,16 +83,17 @@
         <div class="space-y-4 rounded-3xl border border-white/10 bg-gray-900/50 p-4"
              data-github-pat
              data-github-pat-endpoint="/api/github/personal-access-token"
-             data-github-pat-status-endpoint="/api/github/personal-access-token/status">
+             data-github-pat-status-endpoint="/api/github/personal-access-token/status"
+             data-github-pat-initial='@Html.Raw(Model.PersonalAccessToken.ValidationJson)'>
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="space-y-1">
                     <h2 class="text-lg font-semibold text-white">Personal Access Token (PAT)</h2>
                     <p class="text-sm text-gray-300">Necesario para clonar repositorios privados mediante HTTPS.</p>
                 </div>
-                <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold @(Model.PersonalAccessToken.IsConfigured ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-200")"
+                <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold @(Model.PersonalAccessToken.IsConfigured ? "bg-emerald-500/10 text-emerald-300" : (Model.PersonalAccessToken.TokenStored ? "bg-rose-500/10 text-rose-200" : "bg-amber-500/10 text-amber-200"))"
                       data-github-pat-state>
-                    <span class="size-2 rounded-full @(Model.PersonalAccessToken.IsConfigured ? "bg-emerald-400" : "bg-amber-400")" data-github-pat-indicator></span>
-                    <span data-github-pat-label>@(Model.PersonalAccessToken.IsConfigured ? "Configurado" : "Pendiente")</span>
+                    <span class="size-2 rounded-full @(Model.PersonalAccessToken.IsConfigured ? "bg-emerald-400" : (Model.PersonalAccessToken.TokenStored ? "bg-rose-400" : "bg-amber-400"))" data-github-pat-indicator></span>
+                    <span data-github-pat-label>@(Model.PersonalAccessToken.IsConfigured ? "Configurado" : (Model.PersonalAccessToken.TokenStored ? "Revisar" : "Pendiente"))</span>
                 </span>
             </div>
 
@@ -111,6 +113,116 @@
                     }
                 </ul>
                 <p class="text-sm text-gray-300">Una vez generado, copia el token porque GitHub solo lo muestra una vez.</p>
+            </div>
+
+            @{ bool patHasValidation = Model.PersonalAccessToken.Validation != null; }
+            <div class="space-y-3 rounded-2xl border border-white/10 bg-gray-900/70 p-4"
+                 data-github-pat-validation-container>
+                <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 @(patHasValidation ? "hidden" : string.Empty)"
+                     data-github-pat-validation-empty>
+                    <p>Aún no se comprobó el token. Guárdalo para validar que GitHub lo acepte y que tenga los permisos necesarios.</p>
+                </div>
+
+                <div class="space-y-4 @(patHasValidation ? string.Empty : "hidden")"
+                     data-github-pat-validation-panel>
+                    @{ string validationStateClass = patHasValidation ? (Model.PersonalAccessToken.Validation!.TokenAccepted ? (Model.PersonalAccessToken.Validation.HasRequiredPermissions ? "bg-emerald-500/15 text-emerald-200" : "bg-amber-500/15 text-amber-200") : "bg-rose-500/15 text-rose-200") : "bg-emerald-500/15 text-emerald-200"; }
+                    @{ string validationStateLabel = patHasValidation ? (Model.PersonalAccessToken.Validation!.TokenAccepted ? (Model.PersonalAccessToken.Validation.HasRequiredPermissions ? "Token válido" : "Faltan permisos") : "Token rechazado") : "Token pendiente de verificación"; }
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold @validationStateClass"
+                              data-github-pat-validation-state>
+                            <span data-github-pat-validation-state-label>@validationStateLabel</span>
+                        </span>
+                        <span class="text-xs text-gray-400" data-github-pat-validation-login>
+                            @if (patHasValidation && !string.IsNullOrWhiteSpace(Model.PersonalAccessToken.Validation!.Login))
+                            {
+                                <text>GitHub verificó el token para @Model.PersonalAccessToken.Validation.Login.</text>
+                            }
+                        </span>
+                    </div>
+
+                    <p class="text-xs text-gray-300" data-github-pat-validation-type>
+                        @if (patHasValidation)
+                        {
+                            <text>Tipo de token: @(Model.PersonalAccessToken.Validation!.IsFineGrained ? "Fine-grained" : "Classic").</text>
+                        }
+                        else
+                        {
+                            <text>Tipo de token: desconocido.</text>
+                        }
+                    </p>
+                    <p class="text-xs text-gray-300" data-github-pat-validation-repository>
+                        @if (patHasValidation)
+                        {
+                            <text>Acceso a repos privados: @(Model.PersonalAccessToken.Validation!.RepositoryAccessConfirmed ? "Comprobado" : "No confirmado").</text>
+                        }
+                        else
+                        {
+                            <text>Acceso a repos privados: pendiente.</text>
+                        }
+                    </p>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-semibold text-gray-200">Permisos detectados</h3>
+                            <ul class="list-disc space-y-1 pl-5 text-xs text-gray-300" data-github-pat-validation-granted>
+                                @if (patHasValidation && Model.PersonalAccessToken.Validation!.GrantedPermissions.Any())
+                                {
+                                    foreach (string granted in Model.PersonalAccessToken.Validation.GrantedPermissions)
+                                    {
+                                        <li>@granted</li>
+                                    }
+                                }
+                                else
+                                {
+                                    <li>No se detectaron scopes publicados por GitHub.</li>
+                                }
+                            </ul>
+                        </div>
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-semibold text-gray-200">Permisos faltantes</h3>
+                            <ul class="list-disc space-y-1 pl-5 text-xs text-gray-300" data-github-pat-validation-missing>
+                                @if (patHasValidation && Model.PersonalAccessToken.Validation!.MissingPermissions.Any())
+                                {
+                                    foreach (string missing in Model.PersonalAccessToken.Validation.MissingPermissions)
+                                    {
+                                        <li>@missing</li>
+                                    }
+                                }
+                                else
+                                {
+                                    <li>No faltan permisos conocidos.</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+
+                    @{ bool hasWarnings = patHasValidation && (Model.PersonalAccessToken.Validation!.Warnings.Any(warning => !string.IsNullOrWhiteSpace(warning)) || !string.IsNullOrWhiteSpace(Model.PersonalAccessToken.Validation.FailureReason)); }
+                    <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-100 @(hasWarnings ? string.Empty : "hidden")"
+                         data-github-pat-validation-warnings-wrapper>
+                        <h3 class="text-sm font-semibold">Advertencias</h3>
+                        <ul class="mt-2 space-y-1" data-github-pat-validation-warnings>
+                            @if (hasWarnings)
+                            {
+                                foreach (string warning in Model.PersonalAccessToken.Validation!.Warnings)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(warning))
+                                    {
+                                        <li>@warning</li>
+                                    }
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(Model.PersonalAccessToken.Validation.FailureReason))
+                                {
+                                    <li>@Model.PersonalAccessToken.Validation.FailureReason</li>
+                                }
+                            }
+                            else
+                            {
+                                <li>No se registraron advertencias.</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
             </div>
 
             <form class="space-y-3" data-github-pat-form>

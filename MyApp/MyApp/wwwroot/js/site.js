@@ -515,6 +515,17 @@ const initializeGitHubPersonalAccessTokenForm = () => {
     const badge = container.querySelector("[data-github-pat-state]");
     const indicator = container.querySelector("[data-github-pat-indicator]");
     const label = container.querySelector("[data-github-pat-label]");
+    const validationEmpty = container.querySelector("[data-github-pat-validation-empty]");
+    const validationPanel = container.querySelector("[data-github-pat-validation-panel]");
+    const validationState = container.querySelector("[data-github-pat-validation-state]");
+    const validationStateLabel = container.querySelector("[data-github-pat-validation-state-label]");
+    const validationLogin = container.querySelector("[data-github-pat-validation-login]");
+    const validationType = container.querySelector("[data-github-pat-validation-type]");
+    const validationRepository = container.querySelector("[data-github-pat-validation-repository]");
+    const grantedList = container.querySelector("[data-github-pat-validation-granted]");
+    const missingList = container.querySelector("[data-github-pat-validation-missing]");
+    const warningsWrapper = container.querySelector("[data-github-pat-validation-warnings-wrapper]");
+    const warningsList = container.querySelector("[data-github-pat-validation-warnings]");
 
     if (form === null || input === null || status === null || submit === null) {
         return;
@@ -544,27 +555,240 @@ const initializeGitHubPersonalAccessTokenForm = () => {
         }
     };
 
-    const updateBadge = (isConfigured) => {
+    const updateBadge = (isConfigured, tokenStored) => {
         if (badge === null || indicator === null) {
             return;
         }
 
-        badge.classList.remove("bg-emerald-500/10", "text-emerald-300", "bg-amber-500/10", "text-amber-200");
-        indicator.classList.remove("bg-emerald-400", "bg-amber-400");
+        badge.classList.remove("bg-emerald-500/10", "text-emerald-300", "bg-amber-500/10", "text-amber-200", "bg-rose-500/10", "text-rose-200");
+        indicator.classList.remove("bg-emerald-400", "bg-amber-400", "bg-rose-400");
 
         if (label !== null) {
-            label.textContent = isConfigured === true ? "Configurado" : "Pendiente";
+            if (isConfigured === true) {
+                label.textContent = "Configurado";
+            }
+            else if (tokenStored === true) {
+                label.textContent = "Revisar";
+            }
+            else {
+                label.textContent = "Pendiente";
+            }
         }
 
         if (isConfigured === true) {
             badge.classList.add("bg-emerald-500/10", "text-emerald-300");
             indicator.classList.add("bg-emerald-400");
         }
+        else if (tokenStored === true) {
+            badge.classList.add("bg-rose-500/10", "text-rose-200");
+            indicator.classList.add("bg-rose-400");
+        }
         else {
             badge.classList.add("bg-amber-500/10", "text-amber-200");
             indicator.classList.add("bg-amber-400");
         }
     };
+
+    const renderList = (target, items, emptyMessage) => {
+        if (target === null) {
+            return;
+        }
+
+        target.innerHTML = "";
+
+        const entries = Array.isArray(items) ? items : [];
+        entries.forEach((entry) => {
+            if (typeof entry !== "string") {
+                return;
+            }
+
+            const trimmed = entry.trim();
+            if (trimmed.length === 0) {
+                return;
+            }
+
+            const listItem = document.createElement("li");
+            listItem.textContent = trimmed;
+            target.appendChild(listItem);
+        });
+
+        if (target.childElementCount === 0) {
+            const emptyItem = document.createElement("li");
+            emptyItem.textContent = emptyMessage;
+            target.appendChild(emptyItem);
+        }
+    };
+
+    const applyValidation = (validation) => {
+        const hasValidation = validation !== null && typeof validation === "object";
+
+        if (validationEmpty !== null) {
+            if (hasValidation === true) {
+                validationEmpty.classList.add("hidden");
+            }
+            else {
+                validationEmpty.classList.remove("hidden");
+            }
+        }
+
+        if (validationPanel !== null) {
+            if (hasValidation === true) {
+                validationPanel.classList.remove("hidden");
+            }
+            else {
+                validationPanel.classList.add("hidden");
+            }
+        }
+
+        if (hasValidation === false || validation === null) {
+            if (validationState !== null) {
+                validationState.classList.remove("bg-emerald-500/15", "text-emerald-200", "bg-amber-500/15", "text-amber-200", "bg-rose-500/15", "text-rose-200");
+                validationState.classList.add("bg-emerald-500/15", "text-emerald-200");
+            }
+
+            if (validationStateLabel !== null) {
+                validationStateLabel.textContent = "Token pendiente de verificación";
+            }
+
+            if (validationLogin !== null) {
+                validationLogin.textContent = "";
+            }
+
+            if (validationType !== null) {
+                validationType.textContent = "Tipo de token: desconocido.";
+            }
+
+            if (validationRepository !== null) {
+                validationRepository.textContent = "Acceso a repos privados: pendiente.";
+            }
+
+            renderList(grantedList, [], "No se detectaron scopes publicados por GitHub.");
+            renderList(missingList, [], "No faltan permisos conocidos.");
+
+            if (warningsWrapper !== null) {
+                warningsWrapper.classList.add("hidden");
+            }
+
+            if (warningsList !== null) {
+                warningsList.innerHTML = "";
+            }
+
+            return;
+        }
+
+        const tokenAccepted = validation.tokenAccepted === true;
+        const hasPermissions = validation.hasRequiredPermissions === true;
+        const isFineGrained = validation.isFineGrained === true;
+        const repositoryConfirmed = validation.repositoryAccessConfirmed === true;
+
+        if (validationState !== null) {
+            validationState.classList.remove("bg-emerald-500/15", "text-emerald-200", "bg-amber-500/15", "text-amber-200", "bg-rose-500/15", "text-rose-200");
+
+            if (tokenAccepted === false) {
+                validationState.classList.add("bg-rose-500/15", "text-rose-200");
+            }
+            else if (hasPermissions === true) {
+                validationState.classList.add("bg-emerald-500/15", "text-emerald-200");
+            }
+            else {
+                validationState.classList.add("bg-amber-500/15", "text-amber-200");
+            }
+        }
+
+        if (validationStateLabel !== null) {
+            if (tokenAccepted === false) {
+                validationStateLabel.textContent = "Token rechazado";
+            }
+            else if (hasPermissions === true) {
+                validationStateLabel.textContent = "Token válido";
+            }
+            else {
+                validationStateLabel.textContent = "Faltan permisos";
+            }
+        }
+
+        if (validationLogin !== null) {
+            const login = typeof validation.login === "string" ? validation.login.trim() : "";
+            if (login.length > 0 && tokenAccepted === true) {
+                validationLogin.textContent = `GitHub verificó el token para ${login}.`;
+            }
+            else {
+                validationLogin.textContent = "";
+            }
+        }
+
+        if (validationType !== null) {
+            if (tokenAccepted === true) {
+                validationType.textContent = `Tipo de token: ${isFineGrained === true ? "Fine-grained" : "Classic"}.`;
+            }
+            else {
+                validationType.textContent = "Tipo de token: desconocido.";
+            }
+        }
+
+        if (validationRepository !== null) {
+            if (tokenAccepted === true) {
+                validationRepository.textContent = `Acceso a repos privados: ${repositoryConfirmed === true ? "Comprobado" : "No confirmado"}.`;
+            }
+            else {
+                validationRepository.textContent = "Acceso a repos privados: no verificado.";
+            }
+        }
+
+        const grantedPermissions = Array.isArray(validation.grantedPermissions) ? validation.grantedPermissions : [];
+        renderList(grantedList, grantedPermissions, "No se detectaron scopes publicados por GitHub.");
+
+        const missingPermissions = Array.isArray(validation.missingPermissions) ? validation.missingPermissions : [];
+        renderList(missingList, missingPermissions, "No faltan permisos conocidos.");
+
+        const warnings = [];
+        if (Array.isArray(validation.warnings)) {
+            validation.warnings.forEach((warning) => {
+                if (typeof warning !== "string") {
+                    return;
+                }
+
+                const trimmed = warning.trim();
+                if (trimmed.length > 0) {
+                    warnings.push(trimmed);
+                }
+            });
+        }
+
+        if (typeof validation.failureReason === "string") {
+            const trimmedFailure = validation.failureReason.trim();
+            if (trimmedFailure.length > 0 && warnings.includes(trimmedFailure) === false) {
+                warnings.push(trimmedFailure);
+            }
+        }
+
+        if (warningsWrapper !== null) {
+            if (warnings.length === 0) {
+                warningsWrapper.classList.add("hidden");
+            }
+            else {
+                warningsWrapper.classList.remove("hidden");
+            }
+        }
+
+        if (warningsList !== null) {
+            renderList(warningsList, warnings, "No se registraron advertencias.");
+        }
+    };
+
+    const initialValidationRaw = container.getAttribute("data-github-pat-initial");
+    if (typeof initialValidationRaw === "string" && initialValidationRaw.length > 0) {
+        try {
+            const parsedInitial = JSON.parse(initialValidationRaw);
+            applyValidation(parsedInitial);
+        }
+        catch (error) {
+            applyValidation(null);
+        }
+    }
+    else {
+        applyValidation(null);
+    }
 
     form.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -588,6 +812,9 @@ const initializeGitHubPersonalAccessTokenForm = () => {
         })
             .then(async (response) => {
                 if (response.ok) {
+                    const payload = await response.json();
+                    applyValidation(payload !== null && typeof payload === "object" ? payload.validation ?? null : null);
+                    updateBadge(true, true);
                     return;
                 }
 
@@ -627,12 +854,11 @@ const initializeGitHubPersonalAccessTokenForm = () => {
                 }
 
                 setStatus("Ocurrió un error al guardar el token personal.", "text-rose-300");
-                throw new Error("server");
+                    throw new Error("server");
             })
             .then(async () => {
                 input.value = "";
-                setStatus("Token guardado correctamente.", "text-emerald-300");
-                updateBadge(true);
+                setStatus("Token validado y guardado correctamente.", "text-emerald-300");
 
                 if (statusEndpoint.length === 0) {
                     return;
@@ -642,8 +868,11 @@ const initializeGitHubPersonalAccessTokenForm = () => {
                     const statusResponse = await fetch(statusEndpoint, { method: "GET" });
                     if (statusResponse.ok) {
                         const payload = await statusResponse.json();
-                        if (payload !== null && typeof payload === "object" && typeof payload.isConfigured === "boolean") {
-                            updateBadge(payload.isConfigured === true);
+                        if (payload !== null && typeof payload === "object") {
+                            const configured = payload.isConfigured === true;
+                            const tokenStored = payload.tokenStored === true || configured === true;
+                            updateBadge(configured, tokenStored);
+                            applyValidation(payload.validation ?? null);
                         }
                     }
                 }

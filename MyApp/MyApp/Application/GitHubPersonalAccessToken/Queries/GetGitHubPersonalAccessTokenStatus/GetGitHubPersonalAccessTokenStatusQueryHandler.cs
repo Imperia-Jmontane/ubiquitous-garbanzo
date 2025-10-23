@@ -2,36 +2,50 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
-using MyApp.Application.GitHubPersonalAccessToken.DTOs;
 using MyApp.Application.Abstractions;
+using MyApp.Application.GitHubPersonalAccessToken;
+using MyApp.Application.GitHubPersonalAccessToken.DTOs;
+using MyApp.Application.GitHubPersonalAccessToken.Models;
 
 namespace MyApp.Application.GitHubPersonalAccessToken.Queries.GetGitHubPersonalAccessTokenStatus
 {
     public sealed class GetGitHubPersonalAccessTokenStatusQueryHandler : IRequestHandler<GetGitHubPersonalAccessTokenStatusQuery, GitHubPersonalAccessTokenStatusDto>
     {
         private readonly ISecretProvider secretProvider;
+        private readonly IGitHubPersonalAccessTokenInspector personalAccessTokenInspector;
 
-        public GetGitHubPersonalAccessTokenStatusQueryHandler(ISecretProvider secretProvider)
+        public GetGitHubPersonalAccessTokenStatusQueryHandler(ISecretProvider secretProvider, IGitHubPersonalAccessTokenInspector personalAccessTokenInspector)
         {
             this.secretProvider = secretProvider;
+            this.personalAccessTokenInspector = personalAccessTokenInspector;
         }
 
         public async Task<GitHubPersonalAccessTokenStatusDto> Handle(GetGitHubPersonalAccessTokenStatusQuery request, CancellationToken cancellationToken)
         {
             string? token = await secretProvider.GetSecretAsync("GitHubPersonalAccessToken", cancellationToken);
-            bool isConfigured = !string.IsNullOrWhiteSpace(token);
+            bool tokenStored = !string.IsNullOrWhiteSpace(token);
+            GitHubPersonalAccessTokenValidationResultDto? validation = null;
+            bool isConfigured = false;
 
-            List<string> permissions = new List<string>
+            if (tokenStored)
             {
-                "repo (PAT clásico) o Contents: read en un PAT con permisos afinados",
-                "workflow (PAT clásico) o Actions: read & write",
-                "read:org si necesitas repos privados de organizaciones"
-            };
+                GitHubPersonalAccessTokenInspectionResult inspection = await personalAccessTokenInspector.InspectAsync(
+                    token!,
+                    GitHubPersonalAccessTokenRequirements.RequiredScopes,
+                    cancellationToken);
+
+                validation = GitHubPersonalAccessTokenValidationResultDto.FromInspection(inspection);
+                isConfigured = inspection.TokenAccepted && inspection.HasRequiredPermissions;
+            }
+
+            List<string> permissions = new List<string>(GitHubPersonalAccessTokenRequirements.DisplayPermissions);
 
             GitHubPersonalAccessTokenStatusDto dto = new GitHubPersonalAccessTokenStatusDto(
+                tokenStored,
                 isConfigured,
-                "https://github.com/settings/tokens",
-                permissions);
+                GitHubPersonalAccessTokenRequirements.GenerationUrl,
+                permissions,
+                validation);
 
             return dto;
         }
