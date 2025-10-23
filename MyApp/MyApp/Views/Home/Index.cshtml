@@ -182,6 +182,7 @@
                     })
                     .then(function (payload) {
                         if (!payload || !Array.isArray(payload)) {
+                            purgeInactiveOperations();
                             return;
                         }
 
@@ -189,6 +190,8 @@
                             const viewState = convertStatusToViewState(status);
                             upsertOperation(viewState);
                         });
+
+                        purgeInactiveOperations();
                     })
                     .catch(function (error) {
                         console.warn(error);
@@ -197,7 +200,7 @@
 
             function upsertOperation(state) {
                 if (!state) {
-                    return;
+                    return null;
                 }
 
                 const normalizedRepository = normalizeRepositoryUrl(state.repositoryUrl);
@@ -241,6 +244,31 @@
                 } else {
                     stopPolling(operationEntry);
                 }
+
+                return operationEntry;
+            }
+
+            function purgeInactiveOperations() {
+                const keysToRemove = [];
+
+                operations.forEach(function (entry, key) {
+                    if (!entry || entry.isActive === true) {
+                        return;
+                    }
+
+                    keysToRemove.push(key);
+                });
+
+                keysToRemove.forEach(function (key) {
+                    const entry = operations.get(key);
+
+                    if (!entry) {
+                        operations.delete(key);
+                        return;
+                    }
+
+                    removeOperationEntry(entry);
+                });
             }
 
             function determineOperationKey(state, normalizedRepository) {
@@ -708,17 +736,37 @@
             }
 
             function convertStatusToViewState(status) {
-                const stateName = status.state || 'Queued';
+                const rawPercentage = typeof status.percentage === 'number'
+                    ? status.percentage
+                    : parseFloat(status.percentage || '0') || 0;
+                const stageText = status.stage || '';
+                const normalizedStage = stageText.toLowerCase();
+                let stateName = status.state || '';
+
+                if (!stateName) {
+                    if (rawPercentage >= 100 && (normalizedStage.includes('complete') || normalizedStage.includes('ready'))) {
+                        stateName = 'Completed';
+                    } else {
+                        stateName = 'Queued';
+                    }
+                }
+
+                let isActive = stateName === 'Queued' || stateName === 'Running';
+
+                if (isActive && rawPercentage >= 100 && (normalizedStage.includes('complete') || normalizedStage.includes('ready'))) {
+                    stateName = 'Completed';
+                    isActive = false;
+                }
 
                 return {
                     operationId: status.operationId || '',
                     repositoryUrl: status.repositoryUrl || '',
                     notification: status.repositoryUrl || 'Repository clone',
-                    percentage: typeof status.percentage === 'number' ? status.percentage : parseFloat(status.percentage || '0') || 0,
-                    stage: status.stage || '',
+                    percentage: rawPercentage,
+                    stage: stageText,
                     message: status.message || '',
                     state: stateName,
-                    isActive: stateName === 'Queued' || stateName === 'Running'
+                    isActive: isActive
                 };
             }
 
