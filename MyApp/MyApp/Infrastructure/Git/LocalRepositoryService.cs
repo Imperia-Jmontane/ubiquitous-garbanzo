@@ -21,8 +21,9 @@ namespace MyApp.Infrastructure.Git
     {
         private readonly RepositoryStorageOptions _options;
         private readonly ILogger<LocalRepositoryService> _logger;
+        private readonly ISecretProvider _secretProvider;
 
-        public LocalRepositoryService(IOptions<RepositoryStorageOptions> options, ILogger<LocalRepositoryService> logger)
+        public LocalRepositoryService(IOptions<RepositoryStorageOptions> options, ILogger<LocalRepositoryService> logger, ISecretProvider secretProvider)
         {
             if (options == null)
             {
@@ -34,8 +35,14 @@ namespace MyApp.Infrastructure.Git
                 throw new ArgumentNullException(nameof(logger));
             }
 
+            if (secretProvider == null)
+            {
+                throw new ArgumentNullException(nameof(secretProvider));
+            }
+
             _options = options.Value;
             _logger = logger;
+            _secretProvider = secretProvider;
         }
 
         public IReadOnlyCollection<LocalRepository> GetRepositories()
@@ -203,10 +210,20 @@ namespace MyApp.Infrastructure.Git
             progress.Report(startProgress);
 
             CommandResult result;
+            string? personalAccessToken = null;
 
             try
             {
-                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, cancellationToken).ConfigureAwait(false);
+                personalAccessToken = await _secretProvider.GetSecretAsync("GitHubPersonalAccessToken", cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Unable to read the GitHub personal access token from the secret store.");
+            }
+
+            try
+            {
+                result = await ExecuteGitCloneAsync(_options.RootPath, repositoryUrl, repositoryPath, progress, personalAccessToken, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -238,7 +255,7 @@ namespace MyApp.Infrastructure.Git
             return new CloneRepositoryResult(true, false, repositoryPath, string.Empty);
         }
 
-        private static async Task<CommandResult> ExecuteGitCloneAsync(string workingDirectory, string repositoryUrl, string repositoryPath, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
+        private static async Task<CommandResult> ExecuteGitCloneAsync(string workingDirectory, string repositoryUrl, string repositoryPath, IProgress<RepositoryCloneProgress> progress, string? personalAccessToken, CancellationToken cancellationToken)
         {
             ProcessStartInfo startInfo = new ProcessStartInfo
             {
@@ -256,7 +273,30 @@ namespace MyApp.Infrastructure.Git
 
             startInfo.ArgumentList.Add("clone");
             startInfo.ArgumentList.Add("--progress");
-            startInfo.ArgumentList.Add(repositoryUrl);
+
+            string effectiveRepositoryUrl = repositoryUrl;
+            List<string> sensitiveValues = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(personalAccessToken))
+            {
+                string authenticatedRepositoryUrl;
+                IReadOnlyCollection<string> authenticationSensitiveValues;
+
+                if (TryCreateAuthenticatedRepositoryUrl(repositoryUrl, personalAccessToken, out authenticatedRepositoryUrl, out authenticationSensitiveValues))
+                {
+                    effectiveRepositoryUrl = authenticatedRepositoryUrl;
+
+                    foreach (string sensitiveValue in authenticationSensitiveValues)
+                    {
+                        if (!string.IsNullOrEmpty(sensitiveValue))
+                        {
+                            sensitiveValues.Add(sensitiveValue);
+                        }
+                    }
+                }
+            }
+
+            startInfo.ArgumentList.Add(effectiveRepositoryUrl);
             startInfo.ArgumentList.Add(repositoryPath);
 
             StringBuilder standardOutputBuilder = new StringBuilder();
@@ -271,7 +311,8 @@ namespace MyApp.Infrastructure.Git
                 {
                     if (!string.IsNullOrEmpty(args.Data))
                     {
-                        standardOutputBuilder.AppendLine(args.Data);
+                        string sanitizedOutput = SanitizeSensitiveData(args.Data, sensitiveValues);
+                        standardOutputBuilder.AppendLine(sanitizedOutput);
                     }
                 };
 
@@ -280,7 +321,8 @@ namespace MyApp.Infrastructure.Git
                     if (!string.IsNullOrEmpty(args.Data))
                     {
                         string trimmed = args.Data.Trim();
-                        standardErrorBuilder.AppendLine(args.Data);
+                        string sanitizedLine = SanitizeSensitiveData(args.Data, sensitiveValues);
+                        standardErrorBuilder.AppendLine(sanitizedLine);
 
                         if (progress != null)
                         {
@@ -294,7 +336,8 @@ namespace MyApp.Infrastructure.Git
                                     lastPercentage = percentage.Value;
                                 }
 
-                                RepositoryCloneProgress update = new RepositoryCloneProgress(lastPercentage, stage, trimmed);
+                                string sanitizedProgressMessage = SanitizeSensitiveData(trimmed, sensitiveValues);
+                                RepositoryCloneProgress update = new RepositoryCloneProgress(lastPercentage, stage, sanitizedProgressMessage);
                                 progress.Report(update);
                             }
                         }
@@ -356,20 +399,98 @@ namespace MyApp.Infrastructure.Git
                     {
                     }
 
-                    string canceledOutput = standardOutputBuilder.ToString();
-                    string canceledError = standardErrorBuilder.ToString();
+                    string canceledOutput = SanitizeSensitiveData(standardOutputBuilder.ToString(), sensitiveValues);
+                    string canceledError = SanitizeSensitiveData(standardErrorBuilder.ToString(), sensitiveValues);
                     return new CommandResult(false, canceledOutput, canceledError, true);
                 }
 
                 process.WaitForExit();
             }
 
-                string standardOutput = standardOutputBuilder.ToString();
-                string standardError = standardErrorBuilder.ToString();
+                string standardOutput = SanitizeSensitiveData(standardOutputBuilder.ToString(), sensitiveValues);
+                string standardError = SanitizeSensitiveData(standardErrorBuilder.ToString(), sensitiveValues);
                 bool success = process.ExitCode == 0;
 
                 return new CommandResult(success, standardOutput, standardError);
             }
+        }
+
+        private static bool TryCreateAuthenticatedRepositoryUrl(string repositoryUrl, string personalAccessToken, out string authenticatedRepositoryUrl, out IReadOnlyCollection<string> sensitiveValues)
+        {
+            authenticatedRepositoryUrl = repositoryUrl;
+            List<string> values = new List<string>();
+            sensitiveValues = values;
+
+            if (string.IsNullOrWhiteSpace(repositoryUrl))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(personalAccessToken))
+            {
+                return false;
+            }
+
+            Uri? repositoryUri;
+
+            if (!Uri.TryCreate(repositoryUrl, UriKind.Absolute, out repositoryUri))
+            {
+                return false;
+            }
+
+            if (!string.Equals(repositoryUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            UriBuilder builder = new UriBuilder(repositoryUri);
+            builder.UserName = "x-access-token";
+            builder.Password = personalAccessToken;
+
+            authenticatedRepositoryUrl = builder.Uri.AbsoluteUri;
+
+            string rawUserInfo = string.Concat("x-access-token:", personalAccessToken);
+            values.Add(personalAccessToken);
+            values.Add(rawUserInfo);
+
+            string escapedToken = Uri.EscapeDataString(personalAccessToken);
+
+            if (!string.Equals(escapedToken, personalAccessToken, StringComparison.Ordinal))
+            {
+                string escapedUserInfo = string.Concat("x-access-token:", escapedToken);
+                values.Add(escapedToken);
+                values.Add(escapedUserInfo);
+            }
+
+            sensitiveValues = values;
+            return true;
+        }
+
+        private static string SanitizeSensitiveData(string value, IReadOnlyCollection<string> sensitiveValues)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            if (sensitiveValues == null)
+            {
+                return value;
+            }
+
+            string sanitized = value;
+
+            foreach (string sensitive in sensitiveValues)
+            {
+                if (string.IsNullOrEmpty(sensitive))
+                {
+                    continue;
+                }
+
+                sanitized = sanitized.Replace(sensitive, "***");
+            }
+
+            return sanitized;
         }
 
         private static bool TryParseCloneProgress(string line, out string stage, out double? percentage)

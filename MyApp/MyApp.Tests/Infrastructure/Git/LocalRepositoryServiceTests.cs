@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -36,7 +38,8 @@ namespace MyApp.Tests.Infrastructure.Git
                 RootPath = cloneRoot
             };
 
-            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+            ISecretProvider secretProvider = new NullSecretProvider();
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance, secretProvider);
 
             string sourceRepositoryPath = Path.Combine(_rootPath, "source-repository");
             CreateRepository(sourceRepositoryPath, new List<string>(), string.Empty);
@@ -65,7 +68,8 @@ namespace MyApp.Tests.Infrastructure.Git
                 RootPath = cloneRoot
             };
 
-            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+            ISecretProvider secretProvider = new NullSecretProvider();
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance, secretProvider);
 
             string sourceRepositoryPath = Path.Combine(_rootPath, "source-repository-async");
             CreateRepository(sourceRepositoryPath, new List<string>(), string.Empty);
@@ -97,7 +101,8 @@ namespace MyApp.Tests.Infrastructure.Git
                 RootPath = _rootPath
             };
 
-            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance);
+            ISecretProvider secretProvider = new NullSecretProvider();
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance, secretProvider);
 
             IReadOnlyCollection<LocalRepository> repositories = service.GetRepositories();
 
@@ -203,6 +208,14 @@ namespace MyApp.Tests.Infrastructure.Git
                     string message = string.Format("Git command failed: {0}", standardError);
                     throw new InvalidOperationException(message);
                 }
+            }
+        }
+
+        private sealed class NullSecretProvider : ISecretProvider
+        {
+            public Task<string?> GetSecretAsync(string name, CancellationToken cancellationToken)
+            {
+                return Task.FromResult<string?>(null);
             }
         }
     }
