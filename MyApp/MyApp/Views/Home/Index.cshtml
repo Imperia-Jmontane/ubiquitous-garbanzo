@@ -429,7 +429,7 @@
 
                 entry.card.className = cardClassForState(state.state);
                 entry.titleLabel.textContent = headingForState(state.state, state.isActive);
-                entry.messageSpan.textContent = state.notification || state.repositoryUrl || 'Repository clone';
+                entry.messageSpan.textContent = notificationTextForState(state);
                 entry.badge.textContent = info.badgeText;
                 entry.badge.className = info.badgeClass;
 
@@ -466,6 +466,32 @@
                 if (wasActive && !entry.isActive) {
                     scheduleRepositoryRefresh();
                 }
+            }
+
+            function notificationTextForState(state) {
+                if (!state) {
+                    return 'Repository clone';
+                }
+
+                if (!state.isActive) {
+                    if (state.message && state.message.length > 0) {
+                        return state.message;
+                    }
+
+                    if (state.repositoryUrl && state.repositoryUrl.length > 0) {
+                        return state.repositoryUrl;
+                    }
+                }
+
+                if (state.notification && state.notification.length > 0) {
+                    return state.notification;
+                }
+
+                if (state.repositoryUrl && state.repositoryUrl.length > 0) {
+                    return state.repositoryUrl;
+                }
+
+                return 'Repository clone';
             }
 
             function defaultMessageForState(stateName) {
