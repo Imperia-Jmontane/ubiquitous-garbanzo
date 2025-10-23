@@ -49,7 +49,7 @@
                 <h2 class="text-xl font-semibold text-white">Cloned repositories</h2>
                 <p class="text-sm text-gray-300">Select a repository to inspect its available branches.</p>
             </div>
-            <span class="text-sm text-gray-400" data-repository-count="true" data-count="@Model.Repositories.Count">@Model.Repositories.Count repository@(Model.Repositories.Count == 1 ? string.Empty : "ies") available</span>
+            <span class="text-sm text-gray-400" data-repository-count="true" data-count="@Model.Repositories.Count">@Model.Repositories.Count repositor@(Model.Repositories.Count == 1 ? "y" : "ies") available</span>
         </div>
         <div class="mt-8" data-repository-list="true">
             @await Html.PartialAsync("_RepositoryList", Model.Repositories)
@@ -1350,7 +1350,7 @@
             }
 
             function formatRepositoryCount(count) {
-                return count + ' repository' + (count === 1 ? '' : 'ies') + ' available';
+                return count + ' repositor' + (count === 1 ? 'y' : 'ies') + ' available';
             }
 
             function scheduleRepositoryRefresh() {
