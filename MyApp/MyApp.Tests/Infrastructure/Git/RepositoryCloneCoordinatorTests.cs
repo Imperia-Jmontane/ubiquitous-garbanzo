@@ -30,6 +30,10 @@ namespace MyApp.Tests.Infrastructure.Git
                     It.IsAny<CancellationToken>()))
                 .Returns(Task.FromException<CloneRepositoryResult>(new TaskCanceledException()));
 
+            repositoryServiceMock
+                .Setup(service => service.RepositoryExists(It.IsAny<string>()))
+                .Returns(false);
+
             Mock<ILogger<RepositoryCloneCoordinator>> loggerMock = new Mock<ILogger<RepositoryCloneCoordinator>>();
 
             RepositoryCloneCoordinator coordinator = new RepositoryCloneCoordinator(repositoryServiceMock.Object, loggerMock.Object);
@@ -64,6 +68,31 @@ namespace MyApp.Tests.Infrastructure.Git
             Assert.True(hasStatus);
             Assert.Equal(RepositoryCloneState.Canceled, latestStatus.State);
             Assert.Equal("Repository clone was canceled.", latestStatus.Message);
+        }
+
+        [Fact]
+        public void QueueClone_ShouldReturnAlreadyClonedTicketWhenRepositoryFolderExists()
+        {
+            Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
+            repositoryServiceMock
+                .Setup(service => service.RepositoryExists(It.IsAny<string>()))
+                .Returns(true);
+
+            Mock<ILogger<RepositoryCloneCoordinator>> loggerMock = new Mock<ILogger<RepositoryCloneCoordinator>>();
+
+            RepositoryCloneCoordinator coordinator = new RepositoryCloneCoordinator(repositoryServiceMock.Object, loggerMock.Object);
+
+            RepositoryCloneTicket ticket = coordinator.QueueClone("https://github.com/example/project.git");
+
+            Assert.False(ticket.HasOperation);
+            Assert.True(ticket.AlreadyCloned);
+            Assert.False(ticket.Enqueued);
+
+            repositoryServiceMock.Verify(service => service.CloneRepositoryAsync(
+                It.IsAny<string>(),
+                It.IsAny<IProgress<RepositoryCloneProgress>>(),
+                It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }

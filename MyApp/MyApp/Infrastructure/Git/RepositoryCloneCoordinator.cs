@@ -183,6 +183,11 @@ namespace MyApp.Infrastructure.Git
 
         private bool RepositoryAlreadyCloned(string repositoryUrl)
         {
+            if (_repositoryService.RepositoryExists(repositoryUrl))
+            {
+                return true;
+            }
+
             IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
 
             foreach (LocalRepository repository in repositories)

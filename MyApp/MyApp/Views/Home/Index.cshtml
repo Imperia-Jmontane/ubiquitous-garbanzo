@@ -200,18 +200,32 @@
                     return;
                 }
 
-                const key = determineOperationKey(state);
+                const normalizedRepository = normalizeRepositoryUrl(state.repositoryUrl);
+                const key = determineOperationKey(state, normalizedRepository);
 
                 let operationEntry = operations.get(key);
 
+                if (!operationEntry && normalizedRepository) {
+                    const existingKey = findEntryKeyByRepository(normalizedRepository);
+
+                    if (existingKey) {
+                        operationEntry = operations.get(existingKey);
+
+                        if (operationEntry) {
+                            operations.delete(existingKey);
+                        }
+                    }
+                }
+
                 if (!operationEntry) {
                     operationEntry = createOperationEntry(state);
-                    operations.set(key, operationEntry);
                     cloneList.append(operationEntry.card);
                 }
 
                 operationEntry.key = key;
                 operationEntry.operationId = state.operationId;
+                operationEntry.repositoryUrl = state.repositoryUrl || '';
+                operations.set(key, operationEntry);
                 bindClose(operationEntry);
                 bindCancel(operationEntry);
 
@@ -229,16 +243,48 @@
                 }
             }
 
-            function determineOperationKey(state) {
-                if (state.operationId && state.operationId !== '00000000-0000-0000-0000-000000000000') {
-                    return state.operationId;
+            function determineOperationKey(state, normalizedRepository) {
+                const normalized = normalizedRepository || normalizeRepositoryUrl(state.repositoryUrl);
+
+                if (normalized) {
+                    return 'repo:' + normalized;
                 }
 
-                if (state.repositoryUrl) {
-                    return 'static:' + state.repositoryUrl.toLowerCase();
+                if (state.operationId && state.operationId !== '00000000-0000-0000-0000-000000000000') {
+                    return 'operation:' + state.operationId.toLowerCase();
                 }
 
                 return 'static:' + Math.random().toString(36).substring(2);
+            }
+
+            function findEntryKeyByRepository(normalizedRepository) {
+                if (!normalizedRepository) {
+                    return null;
+                }
+
+                for (const [entryKey, entryValue] of operations.entries()) {
+                    const entryRepository = normalizeRepositoryUrl(entryValue && entryValue.repositoryUrl ? entryValue.repositoryUrl : '');
+
+                    if (entryRepository && entryRepository === normalizedRepository) {
+                        return entryKey;
+                    }
+                }
+
+                return null;
+            }
+
+            function normalizeRepositoryUrl(url) {
+                if (!url) {
+                    return '';
+                }
+
+                const trimmed = url.trim().toLowerCase();
+
+                if (trimmed.endsWith('.git')) {
+                    return trimmed.substring(0, trimmed.length - 4);
+                }
+
+                return trimmed;
             }
 
             function createOperationEntry(state) {
@@ -358,7 +404,8 @@
                     cancelButton: cancelButton,
                     isActive: state.isActive,
                     state: state.state,
-                    operationId: state.operationId
+                    operationId: state.operationId,
+                    repositoryUrl: state.repositoryUrl || ''
                 };
             }
 
@@ -411,6 +458,7 @@
                     }
                 }
 
+                entry.repositoryUrl = state.repositoryUrl || entry.repositoryUrl || '';
                 entry.isActive = state.isActive;
                 entry.state = state.state;
                 entry.operationId = state.operationId;

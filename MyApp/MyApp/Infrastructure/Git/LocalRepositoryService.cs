@@ -160,6 +160,47 @@ namespace MyApp.Infrastructure.Git
             }
         }
 
+        public bool RepositoryExists(string repositoryUrl)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryUrl))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(_options.RootPath))
+            {
+                return false;
+            }
+
+            string repositoryName;
+
+            try
+            {
+                repositoryName = GetRepositoryName(repositoryUrl);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                _logger.LogDebug(exception, "Unable to determine repository name for {RepositoryUrl} while checking existence.", repositoryUrl);
+                return false;
+            }
+
+            string repositoryPath = Path.Combine(_options.RootPath, repositoryName);
+
+            if (!Directory.Exists(repositoryPath))
+            {
+                return false;
+            }
+
+            string gitDirectoryPath = Path.Combine(repositoryPath, ".git");
+
+            if (!Directory.Exists(gitDirectoryPath))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(repositoryUrl))
