@@ -344,8 +344,12 @@ namespace MyApp.Infrastructure.Git
                     }
                 };
 
+                TaskCompletionSource<bool> cancellationCompletionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
                 using (cancellationToken.Register(() =>
                 {
+                    cancellationCompletionSource.TrySetResult(true);
+
                     try
                     {
                         if (!process.HasExited)
@@ -361,6 +365,13 @@ namespace MyApp.Infrastructure.Git
                     }
                 }))
                 {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        string canceledOutput = SanitizeSensitiveData(standardOutputBuilder.ToString(), sensitiveValues);
+                        string canceledError = SanitizeSensitiveData(standardErrorBuilder.ToString(), sensitiveValues);
+                        return new CommandResult(false, canceledOutput, canceledError, true);
+                    }
+
                     bool started = process.Start();
 
                     if (!started)
@@ -371,41 +382,27 @@ namespace MyApp.Infrastructure.Git
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
 
-                    try
+                    Task waitForExitTask = process.WaitForExitAsync();
+                    Task cancellationTask = cancellationCompletionSource.Task;
+                    Task completedTask = await Task.WhenAny(waitForExitTask, cancellationTask).ConfigureAwait(false);
+
+                    if (completedTask == cancellationTask)
                     {
-                        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    try
-                    {
-                        if (!process.HasExited)
+                        try
                         {
-                            TryTerminateProcess(process);
+                            await waitForExitTask.ConfigureAwait(false);
                         }
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
-                    catch (NotSupportedException)
-                    {
+                        catch (InvalidOperationException)
+                        {
+                        }
+
+                        string canceledOutput = SanitizeSensitiveData(standardOutputBuilder.ToString(), sensitiveValues);
+                        string canceledError = SanitizeSensitiveData(standardErrorBuilder.ToString(), sensitiveValues);
+                        return new CommandResult(false, canceledOutput, canceledError, true);
                     }
 
-                    try
-                    {
-                        process.WaitForExit();
-                    }
-                    catch (InvalidOperationException)
-                    {
-                    }
-
-                    string canceledOutput = SanitizeSensitiveData(standardOutputBuilder.ToString(), sensitiveValues);
-                    string canceledError = SanitizeSensitiveData(standardErrorBuilder.ToString(), sensitiveValues);
-                    return new CommandResult(false, canceledOutput, canceledError, true);
+                    await waitForExitTask.ConfigureAwait(false);
                 }
-
-                process.WaitForExit();
-            }
 
                 string standardOutput = SanitizeSensitiveData(standardOutputBuilder.ToString(), sensitiveValues);
                 string standardError = SanitizeSensitiveData(standardErrorBuilder.ToString(), sensitiveValues);

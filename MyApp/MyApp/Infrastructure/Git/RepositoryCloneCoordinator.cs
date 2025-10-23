@@ -110,7 +110,13 @@ namespace MyApp.Infrastructure.Git
 
             CloneOperationState currentState = registration.GetStateSnapshot();
 
-            if (currentState.State == RepositoryCloneState.Completed || currentState.State == RepositoryCloneState.Failed || currentState.State == RepositoryCloneState.Canceled)
+            if (currentState.State == RepositoryCloneState.Completed)
+            {
+                bool removed = TryHandleCompletedCloneCancellation(operationId, currentState);
+                return removed;
+            }
+
+            if (currentState.State == RepositoryCloneState.Failed || currentState.State == RepositoryCloneState.Canceled)
             {
                 return false;
             }
@@ -128,6 +134,50 @@ namespace MyApp.Infrastructure.Git
             {
             }
 
+            return true;
+        }
+
+        private bool TryHandleCompletedCloneCancellation(Guid operationId, CloneOperationState state)
+        {
+            bool repositoryRemoved = TryDeleteRepositoryForUrl(state.RepositoryUrl);
+
+            if (!repositoryRemoved)
+            {
+                return false;
+            }
+
+            UpdateStatus(operationId, state.RepositoryUrl, RepositoryCloneState.Canceled, 100.0, "Canceled", "Repository clone was canceled.");
+            return true;
+        }
+
+        private bool TryDeleteRepositoryForUrl(string repositoryUrl)
+        {
+            if (string.IsNullOrWhiteSpace(repositoryUrl))
+            {
+                return false;
+            }
+
+            IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
+
+            foreach (LocalRepository repository in repositories)
+            {
+                if (!RepositoryUrlsMatch(repository.RemoteUrl, repositoryUrl))
+                {
+                    continue;
+                }
+
+                DeleteRepositoryResult deleteResult = _repositoryService.DeleteRepository(repository.FullPath);
+
+                if (!deleteResult.Succeeded)
+                {
+                    _logger.LogWarning("Unable to delete repository at {RepositoryPath} after clone completion: {Message}", repository.FullPath, deleteResult.Message);
+                    return false;
+                }
+
+                return true;
+            }
+
+            _logger.LogInformation("Repository for {RepositoryUrl} not found during cancel request after completion.", repositoryUrl);
             return true;
         }
 
