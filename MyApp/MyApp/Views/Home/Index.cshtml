@@ -987,14 +987,8 @@
                         return;
                     }
 
-                    const confirmation = window.confirm('Stopping this clone will delete any files that have already been downloaded. Do you want to continue?');
-
-                    if (!confirmation) {
-                        return;
-                    }
-
                     if (entry.messageParagraph) {
-                        entry.messageParagraph.textContent = 'Stopping repository clone...';
+                        entry.messageParagraph.textContent = 'Stopping repository clone and removing downloaded files...';
                     }
 
                     setCancelButtonState(entry.cancelButton, true);
