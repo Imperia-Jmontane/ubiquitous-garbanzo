@@ -84,6 +84,46 @@
             let repositoryDeleteDialog = null;
             let repositoryDeleteContext = null;
             let repositoryDeleteEscapeBound = false;
+            const repositoryCommandConfigurations = {
+                fetch: {
+                    endpoint: '/api/repositories/fetch',
+                    successTitle: 'Fetch completed',
+                    successMessage: function (context) {
+                        return 'Fetched latest changes for ' + buildRepositoryName(context) + '.';
+                    },
+                    errorTitle: 'Fetch failed',
+                    defaultError: 'Failed to fetch latest changes.',
+                    requiresRemote: true
+                },
+                pull: {
+                    endpoint: '/api/repositories/pull',
+                    successTitle: 'Pull completed',
+                    successMessage: function (context) {
+                        return 'Pulled latest changes into ' + buildRepositoryName(context) + '.';
+                    },
+                    errorTitle: 'Pull failed',
+                    defaultError: 'Failed to pull the latest changes.',
+                    requiresRemote: true
+                },
+                push: {
+                    endpoint: '/api/repositories/push',
+                    successTitle: 'Push completed',
+                    successMessage: function (context) {
+                        return 'Pushed local commits from ' + buildRepositoryName(context) + '.';
+                    },
+                    errorTitle: 'Push failed',
+                    defaultError: 'Failed to push local commits.',
+                    requiresRemote: true
+                }
+            };
+
+            function buildRepositoryName(context) {
+                if (!context || !context.name) {
+                    return 'the repository';
+                }
+
+                return '"' + context.name + '"';
+            }
 
             if (repositoryCountLabel && repositoryCountLabel.dataset.count) {
                 const initialCount = parseInt(repositoryCountLabel.dataset.count || '0', 10) || 0;
@@ -182,7 +222,7 @@
                 }
 
                 if (shouldShowInProgressNotification(response)) {
-                    showGlobalNotification('Clone already in progress', 'We are already cloning this repository. You can monitor the progress below.');
+                    showGlobalNotification('Clone already in progress', 'We are already cloning this repository. You can monitor the progress below.', 'info');
                 }
 
                 const state = convertApiResponseToState(response);
@@ -208,9 +248,18 @@
                 return normalizedState === 'running' || normalizedState === 'queued';
             }
 
-            function showGlobalNotification(title, message) {
+            function showGlobalNotification(title, message, variant) {
                 if (!globalNotificationStack) {
                     return;
+                }
+
+                const normalizedVariant = typeof variant === 'string' ? variant.toLowerCase() : 'success';
+                let iconMarkup = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6 text-green-400"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+
+                if (normalizedVariant === 'error') {
+                    iconMarkup = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6 text-red-400"><path d="M9.75 9.75 14.25 14.25m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+                } else if (normalizedVariant === 'info') {
+                    iconMarkup = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6 text-indigo-400"><path d="M12 9v6m0-8.25h.008v.008H12V6.75Zm9 5.25a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
                 }
 
                 const panel = document.createElement('div');
@@ -227,7 +276,7 @@
 
                 const iconContainer = document.createElement('div');
                 iconContainer.className = 'shrink-0';
-                iconContainer.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" data-slot="icon" aria-hidden="true" class="size-6 text-green-400"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+                iconContainer.innerHTML = iconMarkup;
                 header.append(iconContainer);
 
                 const textContainer = document.createElement('div');
@@ -998,6 +1047,84 @@
                         showDeleteConfirmation(context);
                     });
                 });
+
+                const commandButtons = repositoryList.querySelectorAll('[data-repository-command]');
+
+                commandButtons.forEach(function (button) {
+                    if (button.dataset.bound === 'true') {
+                        return;
+                    }
+
+                    button.dataset.bound = 'true';
+                    button.addEventListener('click', function () {
+                        const context = {
+                            command: button.getAttribute('data-repository-command') || '',
+                            name: button.getAttribute('data-repository-name') || '',
+                            path: button.getAttribute('data-repository-path') || '',
+                            hasRemote: button.getAttribute('data-repository-has-remote') === 'true'
+                        };
+
+                        executeRepositoryCommand(context, button);
+                    });
+                });
+            }
+
+            function executeRepositoryCommand(context, button) {
+                if (!context || !context.command || !context.path || !button) {
+                    return;
+                }
+
+                const configuration = repositoryCommandConfigurations[context.command];
+
+                if (!configuration) {
+                    return;
+                }
+
+                if (configuration.requiresRemote && context.hasRemote !== true) {
+                    showGlobalNotification('Remote not configured', 'This repository does not have a remote origin configured.', 'error');
+                    return;
+                }
+
+                setButtonLoading(button, true);
+
+                const payload = {
+                    repositoryPath: context.path
+                };
+
+                fetch(configuration.endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
+                })
+                    .then(function (response) {
+                        if (response.ok) {
+                            return response.json().catch(function () {
+                                return { succeeded: true };
+                            });
+                        }
+
+                        return response.json().catch(function () {
+                            return { message: configuration.defaultError };
+                        }).then(function (payload) {
+                            const message = payload && payload.message ? payload.message : configuration.defaultError;
+                            throw new Error(message);
+                        });
+                    })
+                    .then(function (payload) {
+                        const successText = payload && payload.message ? payload.message : configuration.successMessage(context);
+                        showGlobalNotification(configuration.successTitle, successText, 'success');
+                        refreshRepositories();
+                    })
+                    .catch(function (error) {
+                        const failureText = error && error.message ? error.message : configuration.defaultError;
+                        showGlobalNotification(configuration.errorTitle, failureText, 'error');
+                    })
+                    .finally(function () {
+                        setButtonLoading(button, false);
+                    });
             }
 
             function showDeleteConfirmation(context) {

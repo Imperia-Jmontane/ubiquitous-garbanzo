@@ -16,5 +16,11 @@ namespace MyApp.Application.Abstractions
         DeleteRepositoryResult DeleteRepository(string repositoryPath);
 
         bool RepositoryExists(string repositoryUrl);
+
+        GitCommandResult FetchRepository(string repositoryPath);
+
+        GitCommandResult PullRepository(string repositoryPath);
+
+        GitCommandResult PushRepository(string repositoryPath);
     }
 }

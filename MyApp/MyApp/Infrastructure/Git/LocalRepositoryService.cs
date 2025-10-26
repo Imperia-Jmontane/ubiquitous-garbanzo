@@ -201,6 +201,24 @@ namespace MyApp.Infrastructure.Git
             return true;
         }
 
+        public GitCommandResult FetchRepository(string repositoryPath)
+        {
+            string[] arguments = new[] { "fetch", "--all", "--prune" };
+            return ExecuteRepositoryCommand(repositoryPath, arguments, "Fetch completed successfully.", "Failed to fetch the repository.");
+        }
+
+        public GitCommandResult PullRepository(string repositoryPath)
+        {
+            string[] arguments = new[] { "pull", "--ff-only" };
+            return ExecuteRepositoryCommand(repositoryPath, arguments, "Pull completed successfully.", "Failed to pull the repository.");
+        }
+
+        public GitCommandResult PushRepository(string repositoryPath)
+        {
+            string[] arguments = new[] { "push" };
+            return ExecuteRepositoryCommand(repositoryPath, arguments, "Push completed successfully.", "Failed to push the repository.");
+        }
+
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(repositoryUrl))
@@ -724,6 +742,99 @@ namespace MyApp.Infrastructure.Git
             }
 
             Directory.CreateDirectory(_options.RootPath);
+        }
+
+        private GitCommandResult ExecuteRepositoryCommand(string repositoryPath, IReadOnlyCollection<string> arguments, string successFallbackMessage, string errorFallbackMessage)
+        {
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                return new GitCommandResult(false, validationMessage, string.Empty);
+            }
+
+            CommandResult result = ExecuteGitCommand(resolvedRepositoryPath, arguments, TimeSpan.FromMinutes(5));
+
+            if (!result.Succeeded)
+            {
+                string combinedOutput = string.IsNullOrWhiteSpace(result.StandardError) ? result.StandardOutput : result.StandardError;
+                string trimmedError = string.IsNullOrWhiteSpace(combinedOutput) ? string.Empty : combinedOutput.Trim();
+                string errorMessage = string.IsNullOrWhiteSpace(trimmedError) ? errorFallbackMessage : trimmedError;
+                string argumentsDisplay = string.Join(" ", arguments);
+                _logger.LogWarning("Git command {Arguments} failed for {RepositoryPath}: {Message}", argumentsDisplay, resolvedRepositoryPath, errorMessage);
+                return new GitCommandResult(false, errorMessage, trimmedError);
+            }
+
+            string trimmedOutput = string.IsNullOrWhiteSpace(result.StandardOutput) ? string.Empty : result.StandardOutput.Trim();
+            string successMessage = string.IsNullOrWhiteSpace(trimmedOutput) ? successFallbackMessage : trimmedOutput;
+            return new GitCommandResult(true, successMessage, trimmedOutput);
+        }
+
+        private bool TryResolveRepositoryPath(string repositoryPath, out string resolvedRepositoryPath, out string errorMessage)
+        {
+            resolvedRepositoryPath = string.Empty;
+            errorMessage = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(repositoryPath))
+            {
+                errorMessage = "The repository path must be provided.";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(_options.RootPath))
+            {
+                string message = "Repository root path is not configured.";
+                _logger.LogWarning(message);
+                errorMessage = message;
+                return false;
+            }
+
+            string fullRootPath;
+            string candidateRepositoryPath;
+
+            try
+            {
+                fullRootPath = Path.GetFullPath(_options.RootPath);
+                candidateRepositoryPath = repositoryPath;
+
+                if (!Path.IsPathRooted(candidateRepositoryPath))
+                {
+                    candidateRepositoryPath = Path.Combine(fullRootPath, candidateRepositoryPath);
+                }
+
+                candidateRepositoryPath = Path.GetFullPath(candidateRepositoryPath);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException || exception is PathTooLongException || exception is SecurityException)
+            {
+                _logger.LogWarning(exception, "Invalid repository path provided: {RepositoryPath}", repositoryPath);
+                errorMessage = "The repository path is invalid.";
+                return false;
+            }
+
+            if (!candidateRepositoryPath.StartsWith(fullRootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Repository path {RepositoryPath} is outside of the configured storage root.", candidateRepositoryPath);
+                errorMessage = "The repository path is invalid.";
+                return false;
+            }
+
+            if (!Directory.Exists(candidateRepositoryPath))
+            {
+                errorMessage = "The repository could not be found.";
+                return false;
+            }
+
+            string gitDirectoryPath = Path.Combine(candidateRepositoryPath, ".git");
+
+            if (!Directory.Exists(gitDirectoryPath))
+            {
+                errorMessage = "The repository could not be found.";
+                return false;
+            }
+
+            resolvedRepositoryPath = candidateRepositoryPath;
+            return true;
         }
 
         private static void TryDeleteDirectory(string repositoryPath)

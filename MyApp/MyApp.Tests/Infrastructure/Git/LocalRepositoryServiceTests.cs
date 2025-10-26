@@ -125,6 +125,74 @@ namespace MyApp.Tests.Infrastructure.Git
             Assert.False(secondRepository.HasUnpushedCommits);
         }
 
+        [Fact]
+        public void FetchRepository_ShouldReturnErrorForInvalidPath()
+        {
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = _rootPath
+            };
+
+            ISecretProvider secretProvider = new NullSecretProvider();
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance, secretProvider);
+
+            string invalidPath = Path.Combine(_rootPath, "missing-repository");
+            GitCommandResult result = service.FetchRepository(invalidPath);
+
+            Assert.False(result.Succeeded);
+            Assert.False(string.IsNullOrWhiteSpace(result.Message));
+        }
+
+        [Fact]
+        public void RepositoryCommands_ShouldExecuteSuccessfully()
+        {
+            string workspacePath = Path.Combine(_rootPath, "workspace");
+            Directory.CreateDirectory(workspacePath);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = workspacePath
+            };
+
+            ISecretProvider secretProvider = new NullSecretProvider();
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance, secretProvider);
+
+            ExecuteGit(_rootPath, new[] { "init", "--bare", "remote.git" });
+
+            string remotePath = Path.Combine(_rootPath, "remote.git");
+            string producerPath = Path.Combine(_rootPath, "producer");
+            CreateRepository(producerPath, new List<string>(), string.Empty);
+            ExecuteGit(producerPath, new[] { "remote", "add", "origin", remotePath });
+            ExecuteGit(producerPath, new[] { "push", "-u", "origin", "main" });
+            ExecuteGit(_rootPath, new[] { "--git-dir", remotePath, "symbolic-ref", "HEAD", "refs/heads/main" });
+
+            ExecuteGit(workspacePath, new[] { "clone", remotePath, "local" });
+            string localRepositoryPath = Path.Combine(workspacePath, "local");
+
+            GitCommandResult fetchResult = service.FetchRepository(localRepositoryPath);
+            Assert.True(fetchResult.Succeeded, fetchResult.Message);
+
+            string remoteUpdatePath = Path.Combine(producerPath, "REMOTE.md");
+            File.WriteAllText(remoteUpdatePath, "Remote change");
+            ExecuteGit(producerPath, new[] { "add", "." });
+            ExecuteGit(producerPath, new[] { "commit", "-m", "Add remote change" });
+            ExecuteGit(producerPath, new[] { "push", "origin", "main" });
+            string expectedRemoteHead = ReadGitOutput(producerPath, new[] { "rev-parse", "HEAD" });
+
+            GitCommandResult pullResult = service.PullRepository(localRepositoryPath);
+            Assert.True(pullResult.Succeeded, pullResult.Message);
+            string localHeadAfterPull = ReadGitOutput(localRepositoryPath, new[] { "rev-parse", "HEAD" });
+            Assert.Equal(expectedRemoteHead, localHeadAfterPull);
+
+            string localUpdatePath = Path.Combine(localRepositoryPath, "LOCAL.md");
+            File.WriteAllText(localUpdatePath, "Local change");
+            ExecuteGit(localRepositoryPath, new[] { "add", "." });
+            ExecuteGit(localRepositoryPath, new[] { "commit", "-m", "Add local change" });
+
+            GitCommandResult pushResult = service.PushRepository(localRepositoryPath);
+            Assert.True(pushResult.Succeeded, pushResult.Message);
+        }
+
         public void Dispose()
         {
             try
@@ -208,6 +276,47 @@ namespace MyApp.Tests.Infrastructure.Git
                     string message = string.Format("Git command failed: {0}", standardError);
                     throw new InvalidOperationException(message);
                 }
+            }
+        }
+
+        private static string ReadGitOutput(string workingDirectory, IReadOnlyCollection<string> arguments)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = workingDirectory,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            foreach (string argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+
+            using (Process process = new Process())
+            {
+                process.StartInfo = startInfo;
+                bool started = process.Start();
+
+                if (!started)
+                {
+                    throw new InvalidOperationException("Unable to start git process.");
+                }
+
+                string standardOutput = process.StandardOutput.ReadToEnd();
+                string standardError = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    string message = string.Format("Git command failed: {0}", standardError);
+                    throw new InvalidOperationException(message);
+                }
+
+                return standardOutput.Trim();
             }
         }
 
