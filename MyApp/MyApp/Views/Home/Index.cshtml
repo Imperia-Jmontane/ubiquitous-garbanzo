@@ -114,6 +114,19 @@
                     errorTitle: 'Push failed',
                     defaultError: 'Failed to push local commits.',
                     requiresRemote: true
+                },
+                publishBranch: {
+                    endpoint: '/api/repositories/publish-branch',
+                    successTitle: 'Branch published',
+                    successMessage: function (context) {
+                        return 'Published ' + buildBranchName(context) + ' from ' + buildRepositoryName(context) + '.';
+                    },
+                    errorTitle: 'Publish failed',
+                    defaultError: 'Failed to publish the branch.',
+                    requiresRemote: true,
+                    requiresBranch: true,
+                    missingBranchTitle: 'Branch unavailable',
+                    missingBranchMessage: 'Unable to determine which branch to publish.'
                 }
             };
 
@@ -123,6 +136,14 @@
                 }
 
                 return '"' + context.name + '"';
+            }
+
+            function buildBranchName(context) {
+                if (!context || !context.branch) {
+                    return 'the branch';
+                }
+
+                return 'branch "' + context.branch + '"';
             }
 
             if (repositoryCountLabel && repositoryCountLabel.dataset.count) {
@@ -1061,7 +1082,8 @@
                             command: button.getAttribute('data-repository-command') || '',
                             name: button.getAttribute('data-repository-name') || '',
                             path: button.getAttribute('data-repository-path') || '',
-                            hasRemote: button.getAttribute('data-repository-has-remote') === 'true'
+                            hasRemote: button.getAttribute('data-repository-has-remote') === 'true',
+                            branch: button.getAttribute('data-repository-branch') || ''
                         };
 
                         executeRepositoryCommand(context, button);
@@ -1085,11 +1107,22 @@
                     return;
                 }
 
+                if (configuration.requiresBranch && !context.branch) {
+                    const missingTitle = configuration.missingBranchTitle || configuration.errorTitle;
+                    const missingMessage = configuration.missingBranchMessage || configuration.defaultError;
+                    showGlobalNotification(missingTitle, missingMessage, 'error');
+                    return;
+                }
+
                 setButtonLoading(button, true);
 
                 const payload = {
                     repositoryPath: context.path
                 };
+
+                if (context.branch) {
+                    payload.branchName = context.branch;
+                }
 
                 fetch(configuration.endpoint, {
                     method: 'POST',

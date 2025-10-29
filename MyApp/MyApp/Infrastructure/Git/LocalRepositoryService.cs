@@ -220,6 +220,17 @@ namespace MyApp.Infrastructure.Git
             return ExecuteRepositoryCommand(repositoryPath, arguments, "Push completed successfully.", "Failed to push the repository.");
         }
 
+        public GitCommandResult PublishBranch(string repositoryPath, string branchName)
+        {
+            if (string.IsNullOrWhiteSpace(branchName))
+            {
+                return new GitCommandResult(false, "The branch name must be provided.", string.Empty);
+            }
+
+            string[] arguments = new[] { "push", "--set-upstream", "origin", branchName };
+            return ExecuteRepositoryCommand(repositoryPath, arguments, "Branch published successfully.", "Failed to publish the branch.");
+        }
+
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(repositoryUrl))

@@ -191,6 +191,19 @@ namespace MyApp.Tests.Infrastructure.Git
 
             GitCommandResult pushResult = service.PushRepository(localRepositoryPath);
             Assert.True(pushResult.Succeeded, pushResult.Message);
+
+            ExecuteGit(localRepositoryPath, new[] { "checkout", "-b", "feature/publish" });
+            string featureFilePath = Path.Combine(localRepositoryPath, "FEATURE.md");
+            File.WriteAllText(featureFilePath, "Feature branch work");
+            ExecuteGit(localRepositoryPath, new[] { "add", "." });
+            ExecuteGit(localRepositoryPath, new[] { "commit", "-m", "Add feature branch" });
+
+            GitCommandResult publishResult = service.PublishBranch(localRepositoryPath, "feature/publish");
+            Assert.True(publishResult.Succeeded, publishResult.Message);
+
+            string featureBranchHead = ReadGitOutput(_rootPath, new[] { "--git-dir", remotePath, "rev-parse", "refs/heads/feature/publish" });
+            string localFeatureHead = ReadGitOutput(localRepositoryPath, new[] { "rev-parse", "HEAD" });
+            Assert.Equal(localFeatureHead, featureBranchHead);
         }
 
         public void Dispose()

@@ -74,6 +74,12 @@ namespace MyApp.Controllers.Api
             return ExecuteRepositoryCommand(request, _repositoryService.PushRepository);
         }
 
+        [HttpPost("publish-branch")]
+        public ActionResult<RepositoryCommandResponse> PublishBranch([FromBody] PublishBranchRequest request)
+        {
+            return ExecuteRepositoryBranchCommand(request, _repositoryService.PublishBranch);
+        }
+
         private ActionResult<RepositoryCommandResponse> ExecuteRepositoryCommand(RepositoryCommandRequest request, Func<string, GitCommandResult> executor)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.RepositoryPath))
@@ -112,6 +118,44 @@ namespace MyApp.Controllers.Api
             return Ok(response);
         }
 
+        private ActionResult<RepositoryCommandResponse> ExecuteRepositoryBranchCommand(PublishBranchRequest request, Func<string, string, GitCommandResult> executor)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.RepositoryPath) || string.IsNullOrWhiteSpace(request.BranchName))
+            {
+                RepositoryCommandResponse errorResponse = new RepositoryCommandResponse
+                {
+                    Succeeded = false,
+                    Message = "The repository path and branch name must be provided.",
+                    Output = string.Empty
+                };
+
+                return BadRequest(errorResponse);
+            }
+
+            GitCommandResult result = executor(request.RepositoryPath, request.BranchName);
+
+            if (!result.Succeeded)
+            {
+                RepositoryCommandResponse errorResponse = new RepositoryCommandResponse
+                {
+                    Succeeded = false,
+                    Message = string.IsNullOrWhiteSpace(result.Message) ? "The operation could not be completed." : result.Message,
+                    Output = result.Output
+                };
+
+                return BadRequest(errorResponse);
+            }
+
+            RepositoryCommandResponse response = new RepositoryCommandResponse
+            {
+                Succeeded = true,
+                Message = string.IsNullOrWhiteSpace(result.Message) ? "Operation completed successfully." : result.Message,
+                Output = result.Output
+            };
+
+            return Ok(response);
+        }
+
         public sealed class DeleteRepositoryRequest
         {
             public string RepositoryPath { get; set; } = string.Empty;
@@ -127,6 +171,13 @@ namespace MyApp.Controllers.Api
         public sealed class RepositoryCommandRequest
         {
             public string RepositoryPath { get; set; } = string.Empty;
+        }
+
+        public sealed class PublishBranchRequest
+        {
+            public string RepositoryPath { get; set; } = string.Empty;
+
+            public string BranchName { get; set; } = string.Empty;
         }
 
         public sealed class RepositoryCommandResponse
