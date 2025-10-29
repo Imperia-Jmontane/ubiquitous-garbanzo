@@ -136,6 +136,18 @@
                     requiresBranch: true,
                     missingBranchTitle: 'Branch unavailable',
                     missingBranchMessage: 'Unable to determine which branch to publish.'
+                },
+                switchBranch: {
+                    endpoint: '/api/repositories/switch-branch',
+                    successTitle: 'Branch switched',
+                    successMessage: function (context) {
+                        return 'Switched to ' + buildBranchName(context) + ' in ' + buildRepositoryName(context) + '.';
+                    },
+                    errorTitle: 'Switch failed',
+                    defaultError: 'Failed to switch to the branch.',
+                    requiresBranch: true,
+                    missingBranchTitle: 'Branch unavailable',
+                    missingBranchMessage: 'Unable to determine which branch to switch to.'
                 }
             };
 

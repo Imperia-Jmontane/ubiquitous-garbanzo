@@ -25,6 +25,8 @@ namespace MyApp.Application.Abstractions
 
         GitCommandResult PublishBranch(string repositoryPath, string branchName);
 
+        GitCommandResult SwitchBranch(string repositoryPath, string branchName);
+
         GitCommandResult CommitRepository(string repositoryPath);
     }
 }

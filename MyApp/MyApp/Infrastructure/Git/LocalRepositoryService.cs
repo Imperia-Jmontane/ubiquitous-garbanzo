@@ -231,6 +231,17 @@ namespace MyApp.Infrastructure.Git
             return ExecuteRepositoryCommand(repositoryPath, arguments, "Branch published successfully.", "Failed to publish the branch.");
         }
 
+        public GitCommandResult SwitchBranch(string repositoryPath, string branchName)
+        {
+            if (string.IsNullOrWhiteSpace(branchName))
+            {
+                return new GitCommandResult(false, "The branch name must be provided.", string.Empty);
+            }
+
+            string[] arguments = new[] { "switch", branchName };
+            return ExecuteRepositoryCommand(repositoryPath, arguments, "Branch switched successfully.", "Failed to switch the branch.");
+        }
+
         public GitCommandResult CommitRepository(string repositoryPath)
         {
             string resolvedRepositoryPath;

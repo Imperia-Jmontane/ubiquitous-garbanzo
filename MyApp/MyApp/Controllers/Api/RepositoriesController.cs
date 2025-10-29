@@ -83,7 +83,17 @@ namespace MyApp.Controllers.Api
         [HttpPost("publish-branch")]
         public ActionResult<RepositoryCommandResponse> PublishBranch([FromBody] PublishBranchRequest request)
         {
-            return ExecuteRepositoryBranchCommand(request, _repositoryService.PublishBranch);
+            string repositoryPath = request == null ? string.Empty : request.RepositoryPath;
+            string branchName = request == null ? string.Empty : request.BranchName;
+            return ExecuteRepositoryBranchCommand(repositoryPath, branchName, _repositoryService.PublishBranch);
+        }
+
+        [HttpPost("switch-branch")]
+        public ActionResult<RepositoryCommandResponse> SwitchBranch([FromBody] SwitchBranchRequest request)
+        {
+            string repositoryPath = request == null ? string.Empty : request.RepositoryPath;
+            string branchName = request == null ? string.Empty : request.BranchName;
+            return ExecuteRepositoryBranchCommand(repositoryPath, branchName, _repositoryService.SwitchBranch);
         }
 
         private ActionResult<RepositoryCommandResponse> ExecuteRepositoryCommand(RepositoryCommandRequest request, Func<string, GitCommandResult> executor)
@@ -124,9 +134,9 @@ namespace MyApp.Controllers.Api
             return Ok(response);
         }
 
-        private ActionResult<RepositoryCommandResponse> ExecuteRepositoryBranchCommand(PublishBranchRequest request, Func<string, string, GitCommandResult> executor)
+        private ActionResult<RepositoryCommandResponse> ExecuteRepositoryBranchCommand(string repositoryPath, string branchName, Func<string, string, GitCommandResult> executor)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.RepositoryPath) || string.IsNullOrWhiteSpace(request.BranchName))
+            if (string.IsNullOrWhiteSpace(repositoryPath) || string.IsNullOrWhiteSpace(branchName))
             {
                 RepositoryCommandResponse errorResponse = new RepositoryCommandResponse
                 {
@@ -138,7 +148,7 @@ namespace MyApp.Controllers.Api
                 return BadRequest(errorResponse);
             }
 
-            GitCommandResult result = executor(request.RepositoryPath, request.BranchName);
+            GitCommandResult result = executor(repositoryPath, branchName);
 
             if (!result.Succeeded)
             {
@@ -180,6 +190,13 @@ namespace MyApp.Controllers.Api
         }
 
         public sealed class PublishBranchRequest
+        {
+            public string RepositoryPath { get; set; } = string.Empty;
+
+            public string BranchName { get; set; } = string.Empty;
+        }
+
+        public sealed class SwitchBranchRequest
         {
             public string RepositoryPath { get; set; } = string.Empty;
 
