@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Application.Abstractions;
+using MyApp.Domain.Repositories;
 
 namespace MyApp.Controllers.Api
 {
@@ -94,6 +96,49 @@ namespace MyApp.Controllers.Api
             string repositoryPath = request == null ? string.Empty : request.RepositoryPath;
             string branchName = request == null ? string.Empty : request.BranchName;
             return ExecuteRepositoryBranchCommand(repositoryPath, branchName, _repositoryService.SwitchBranch);
+        }
+
+        [HttpGet("remote-branches")]
+        public ActionResult<RemoteBranchesResponse> GetRemoteBranches([FromQuery(Name = "repositoryPath")] string repositoryPath, [FromQuery(Name = "query")] string query)
+        {
+            string path = repositoryPath ?? string.Empty;
+            string search = query ?? string.Empty;
+            RemoteBranchQueryResult result = _repositoryService.GetRemoteBranches(path, search);
+
+            if (!result.Succeeded)
+            {
+                RemoteBranchesResponse errorResponse = new RemoteBranchesResponse
+                {
+                    Succeeded = false,
+                    Message = string.IsNullOrWhiteSpace(result.Message) ? "Failed to load remote branches." : result.Message,
+                    Branches = new List<RemoteBranchResponseItem>()
+                };
+
+                return BadRequest(errorResponse);
+            }
+
+            List<RemoteBranchResponseItem> branches = new List<RemoteBranchResponseItem>();
+
+            foreach (RepositoryRemoteBranch branch in result.Branches)
+            {
+                RemoteBranchResponseItem responseBranch = new RemoteBranchResponseItem
+                {
+                    Name = branch.Name,
+                    RemoteName = branch.RemoteName,
+                    ExistsLocally = branch.ExistsLocally
+                };
+
+                branches.Add(responseBranch);
+            }
+
+            RemoteBranchesResponse response = new RemoteBranchesResponse
+            {
+                Succeeded = true,
+                Message = result.Message,
+                Branches = branches
+            };
+
+            return Ok(response);
         }
 
         private ActionResult<RepositoryCommandResponse> ExecuteRepositoryCommand(RepositoryCommandRequest request, Func<string, GitCommandResult> executor)
@@ -210,6 +255,24 @@ namespace MyApp.Controllers.Api
             public string Message { get; set; } = string.Empty;
 
             public string Output { get; set; } = string.Empty;
+        }
+
+        public sealed class RemoteBranchesResponse
+        {
+            public bool Succeeded { get; set; }
+
+            public string Message { get; set; } = string.Empty;
+
+            public IReadOnlyCollection<RemoteBranchResponseItem> Branches { get; set; } = new List<RemoteBranchResponseItem>();
+        }
+
+        public sealed class RemoteBranchResponseItem
+        {
+            public string Name { get; set; } = string.Empty;
+
+            public string RemoteName { get; set; } = string.Empty;
+
+            public bool ExistsLocally { get; set; }
         }
     }
 }

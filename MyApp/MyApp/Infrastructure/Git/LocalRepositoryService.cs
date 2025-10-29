@@ -238,8 +238,39 @@ namespace MyApp.Infrastructure.Git
                 return new GitCommandResult(false, "The branch name must be provided.", string.Empty);
             }
 
-            string[] arguments = new[] { "switch", branchName };
-            return ExecuteRepositoryCommand(repositoryPath, arguments, "Branch switched successfully.", "Failed to switch the branch.");
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                return new GitCommandResult(false, validationMessage, string.Empty);
+            }
+
+            IReadOnlyCollection<RepositoryBranch> existingBranches = GetBranches(resolvedRepositoryPath);
+            bool branchExists = false;
+
+            foreach (RepositoryBranch branch in existingBranches)
+            {
+                if (string.Equals(branch.Name, branchName, StringComparison.OrdinalIgnoreCase))
+                {
+                    branchExists = true;
+                    break;
+                }
+            }
+
+            string[] arguments;
+
+            if (branchExists)
+            {
+                arguments = new[] { "switch", branchName };
+            }
+            else
+            {
+                string remoteReference = string.Format("origin/{0}", branchName);
+                arguments = new[] { "switch", "--track", remoteReference };
+            }
+
+            return ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, arguments, "Branch switched successfully.", "Failed to switch the branch.");
         }
 
         public GitCommandResult CommitRepository(string repositoryPath)
@@ -976,6 +1007,102 @@ namespace MyApp.Infrastructure.Git
             Directory.CreateDirectory(_options.RootPath);
         }
 
+        public RemoteBranchQueryResult GetRemoteBranches(string repositoryPath, string searchTerm)
+        {
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                List<RepositoryRemoteBranch> emptyBranches = new List<RepositoryRemoteBranch>();
+                return new RemoteBranchQueryResult(false, validationMessage, emptyBranches);
+            }
+
+            IReadOnlyCollection<RepositoryBranch> existingBranches = GetBranches(resolvedRepositoryPath);
+            HashSet<string> localBranchNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (RepositoryBranch branch in existingBranches)
+            {
+                if (!localBranchNames.Contains(branch.Name))
+                {
+                    localBranchNames.Add(branch.Name);
+                }
+            }
+
+            string[] arguments = new[] { "branch", "-r" };
+            CommandResult result = ExecuteGitCommand(resolvedRepositoryPath, arguments, TimeSpan.FromMinutes(1));
+
+            if (!result.Succeeded)
+            {
+                string combinedOutput = string.IsNullOrWhiteSpace(result.StandardError) ? result.StandardOutput : result.StandardError;
+                string trimmedError = string.IsNullOrWhiteSpace(combinedOutput) ? string.Empty : combinedOutput.Trim();
+                string errorMessage = string.IsNullOrWhiteSpace(trimmedError) ? "Failed to retrieve remote branches." : trimmedError;
+                string argumentsDisplay = string.Join(" ", arguments);
+                _logger.LogWarning("Git command {Arguments} failed for {RepositoryPath}: {Message}", argumentsDisplay, resolvedRepositoryPath, errorMessage);
+                List<RepositoryRemoteBranch> emptyBranches = new List<RepositoryRemoteBranch>();
+                return new RemoteBranchQueryResult(false, errorMessage, emptyBranches);
+            }
+
+            string output = result.StandardOutput ?? string.Empty;
+            string[] lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            List<RepositoryRemoteBranch> branches = new List<RepositoryRemoteBranch>();
+            string filter = searchTerm ?? string.Empty;
+
+            foreach (string line in lines)
+            {
+                string trimmedLine = line.Trim();
+
+                if (string.IsNullOrWhiteSpace(trimmedLine))
+                {
+                    continue;
+                }
+
+                if (trimmedLine.IndexOf("->", StringComparison.Ordinal) >= 0)
+                {
+                    continue;
+                }
+
+                int separatorIndex = trimmedLine.IndexOf('/');
+
+                if (separatorIndex <= 0 || separatorIndex == trimmedLine.Length - 1)
+                {
+                    continue;
+                }
+
+                string remoteName = trimmedLine.Substring(0, separatorIndex);
+
+                if (!string.Equals(remoteName, "origin", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string branchSegment = trimmedLine.Substring(separatorIndex + 1).Trim();
+
+                if (string.IsNullOrWhiteSpace(branchSegment))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(filter))
+                {
+                    if (branchSegment.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        continue;
+                    }
+                }
+
+                bool existsLocally = localBranchNames.Contains(branchSegment);
+                RepositoryRemoteBranch remoteBranch = new RepositoryRemoteBranch(remoteName, branchSegment, existsLocally);
+                branches.Add(remoteBranch);
+            }
+
+            List<RepositoryRemoteBranch> orderedBranches = branches
+                .OrderBy(branch => branch.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return new RemoteBranchQueryResult(true, "Remote branches loaded successfully.", orderedBranches);
+        }
+
         private GitCommandResult ExecuteRepositoryCommand(string repositoryPath, IReadOnlyCollection<string> arguments, string successFallbackMessage, string errorFallbackMessage)
         {
             string resolvedRepositoryPath;
@@ -986,6 +1113,11 @@ namespace MyApp.Infrastructure.Git
                 return new GitCommandResult(false, validationMessage, string.Empty);
             }
 
+            return ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, arguments, successFallbackMessage, errorFallbackMessage);
+        }
+
+        private GitCommandResult ExecuteResolvedRepositoryCommand(string resolvedRepositoryPath, IReadOnlyCollection<string> arguments, string successFallbackMessage, string errorFallbackMessage)
+        {
             CommandResult result = ExecuteGitCommand(resolvedRepositoryPath, arguments, TimeSpan.FromMinutes(5));
 
             if (!result.Succeeded)
