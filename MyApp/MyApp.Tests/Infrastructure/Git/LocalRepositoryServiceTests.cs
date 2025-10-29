@@ -126,6 +126,27 @@ namespace MyApp.Tests.Infrastructure.Git
         }
 
         [Fact]
+        public void GetRepositories_ShouldSanitizeRemoteUrlCredentials()
+        {
+            string repositoryPath = Path.Combine(_rootPath, "credential-test");
+            string remoteUrl = "https://x-access-token:ghp_exampleToken1234567890@github.com/Imperia-Jmontane/privaterepo.git";
+            CreateRepository(repositoryPath, new List<string>(), remoteUrl);
+
+            RepositoryStorageOptions options = new RepositoryStorageOptions
+            {
+                RootPath = _rootPath
+            };
+
+            ISecretProvider secretProvider = new NullSecretProvider();
+            LocalRepositoryService service = new LocalRepositoryService(Options.Create(options), NullLogger<LocalRepositoryService>.Instance, secretProvider);
+
+            IReadOnlyCollection<LocalRepository> repositories = service.GetRepositories();
+
+            LocalRepository repository = Assert.Single(repositories);
+            Assert.Equal("https://github.com/Imperia-Jmontane/privaterepo.git", repository.RemoteUrl);
+        }
+
+        [Fact]
         public void FetchRepository_ShouldReturnErrorForInvalidPath()
         {
             RepositoryStorageOptions options = new RepositoryStorageOptions

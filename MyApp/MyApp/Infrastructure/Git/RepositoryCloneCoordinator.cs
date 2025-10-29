@@ -215,7 +215,7 @@ namespace MyApp.Infrastructure.Git
 
         private static string NormalizeRepositoryUrl(string url)
         {
-            string trimmed = url.Trim();
+            string trimmed = RemoveCredentialsFromUrl(url);
 
             if (trimmed.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
             {
@@ -223,6 +223,33 @@ namespace MyApp.Infrastructure.Git
             }
 
             return trimmed;
+        }
+
+        private static string RemoveCredentialsFromUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = url.Trim();
+            int schemeSeparatorIndex = trimmed.IndexOf("://", StringComparison.Ordinal);
+
+            if (schemeSeparatorIndex < 0)
+            {
+                return trimmed;
+            }
+
+            int credentialsEndIndex = trimmed.IndexOf('@', schemeSeparatorIndex + 3);
+
+            if (credentialsEndIndex < 0)
+            {
+                return trimmed;
+            }
+
+            string prefix = trimmed.Substring(0, schemeSeparatorIndex + 3);
+            string remainder = trimmed.Substring(credentialsEndIndex + 1);
+            return string.Concat(prefix, remainder);
         }
 
         private static string NormalizeRepositoryKey(string repositoryUrl)

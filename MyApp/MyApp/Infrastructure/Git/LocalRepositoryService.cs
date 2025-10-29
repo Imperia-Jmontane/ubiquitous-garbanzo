@@ -796,7 +796,41 @@ namespace MyApp.Infrastructure.Git
                 return string.Empty;
             }
 
-            return result.StandardOutput.Trim();
+            string remoteUrl = string.IsNullOrWhiteSpace(result.StandardOutput) ? string.Empty : result.StandardOutput.Trim();
+
+            if (remoteUrl.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return RemoveCredentialsFromUrl(remoteUrl);
+        }
+
+        private static string RemoveCredentialsFromUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = url.Trim();
+            int schemeSeparatorIndex = trimmed.IndexOf("://", StringComparison.Ordinal);
+
+            if (schemeSeparatorIndex < 0)
+            {
+                return trimmed;
+            }
+
+            int credentialsEndIndex = trimmed.IndexOf('@', schemeSeparatorIndex + 3);
+
+            if (credentialsEndIndex < 0)
+            {
+                return trimmed;
+            }
+
+            string prefix = trimmed.Substring(0, schemeSeparatorIndex + 3);
+            string remainder = trimmed.Substring(credentialsEndIndex + 1);
+            return string.Concat(prefix, remainder);
         }
 
         private static DateTimeOffset? GetLastFetchTimeUtc(string repositoryPath)
