@@ -110,16 +110,16 @@ namespace MyApp.Tests.Infrastructure.Git
 
             LocalRepository firstRepository = repositories.Single(repository => repository.Name == "ubiquitous-garbanzo");
             Assert.Equal("https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", firstRepository.RemoteUrl);
-            Assert.Contains("develop", firstRepository.Branches);
-            Assert.Contains("main", firstRepository.Branches);
+            Assert.Contains(firstRepository.Branches, branch => branch.Name == "develop");
+            Assert.Contains(firstRepository.Branches, branch => branch.Name == "main");
             Assert.True(firstRepository.HasRemote);
             Assert.False(firstRepository.HasUncommittedChanges);
             Assert.False(firstRepository.HasUnpushedCommits);
 
             LocalRepository secondRepository = repositories.Single(repository => repository.Name == "vn2-inventory-optimization");
             Assert.Equal("https://github.com/imperia-scm/vn2-inventory-optimization.git", secondRepository.RemoteUrl);
-            Assert.Contains("feature/planning", secondRepository.Branches);
-            Assert.Contains("release/2024-06", secondRepository.Branches);
+            Assert.Contains(secondRepository.Branches, branch => branch.Name == "feature/planning");
+            Assert.Contains(secondRepository.Branches, branch => branch.Name == "release/2024-06");
             Assert.True(secondRepository.HasRemote);
             Assert.False(secondRepository.HasUncommittedChanges);
             Assert.False(secondRepository.HasUnpushedCommits);

@@ -19,10 +19,14 @@ namespace MyApp.Tests.Controllers
         [Fact]
         public void Index_ShouldReturnRepositories()
         {
-            List<string> branches = new List<string> { "main", "develop" };
+            List<RepositoryBranch> branches = new List<RepositoryBranch>
+            {
+                new RepositoryBranch("main", true, true, false, "origin/main", 0, 0),
+                new RepositoryBranch("develop", false, true, false, "origin/develop", 1, 0)
+            };
             List<LocalRepository> repositories = new List<LocalRepository>
             {
-                new LocalRepository("ubiquitous-garbanzo", "/tmp/ubiquitous-garbanzo", "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", branches, false, false)
+                new LocalRepository("ubiquitous-garbanzo", "/tmp/ubiquitous-garbanzo", "https://github.com/Imperia-Jmontane/ubiquitous-garbanzo", branches, false, false, DateTimeOffset.UtcNow)
             };
 
             Mock<ILocalRepositoryService> repositoryServiceMock = new Mock<ILocalRepositoryService>();
@@ -40,7 +44,7 @@ namespace MyApp.Tests.Controllers
             Assert.True(viewModel.HasRepositories);
             RepositoryListItemViewModel repositoryViewModel = viewModel.Repositories.First();
             Assert.Equal("ubiquitous-garbanzo", repositoryViewModel.Name);
-            Assert.Contains("develop", repositoryViewModel.Branches);
+            Assert.Contains(repositoryViewModel.Branches, branch => branch.Name == "develop");
             Assert.False(repositoryViewModel.HasUnsyncedChanges);
         }
 

@@ -128,7 +128,8 @@ namespace MyApp.Controllers
                     repository.RemoteUrl,
                     repository.Branches,
                     repository.HasUncommittedChanges,
-                    repository.HasUnpushedCommits);
+                    repository.HasUnpushedCommits,
+                    repository.LastFetchTimeUtc);
                 repositoryViewModels.Add(repositoryViewModel);
             }
 

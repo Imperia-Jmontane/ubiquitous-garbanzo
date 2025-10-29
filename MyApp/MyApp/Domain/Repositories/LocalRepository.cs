@@ -5,7 +5,7 @@ namespace MyApp.Domain.Repositories
 {
     public sealed class LocalRepository
     {
-        public LocalRepository(string name, string fullPath, string remoteUrl, IReadOnlyCollection<string> branches, bool hasUncommittedChanges, bool hasUnpushedCommits)
+        public LocalRepository(string name, string fullPath, string remoteUrl, IReadOnlyCollection<RepositoryBranch> branches, bool hasUncommittedChanges, bool hasUnpushedCommits, DateTimeOffset? lastFetchTimeUtc)
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -28,6 +28,7 @@ namespace MyApp.Domain.Repositories
             Branches = branches;
             HasUncommittedChanges = hasUncommittedChanges;
             HasUnpushedCommits = hasUnpushedCommits;
+            LastFetchTimeUtc = lastFetchTimeUtc;
         }
 
         public string Name { get; }
@@ -36,11 +37,13 @@ namespace MyApp.Domain.Repositories
 
         public string RemoteUrl { get; }
 
-        public IReadOnlyCollection<string> Branches { get; }
+        public IReadOnlyCollection<RepositoryBranch> Branches { get; }
 
         public bool HasUncommittedChanges { get; }
 
         public bool HasUnpushedCommits { get; }
+
+        public DateTimeOffset? LastFetchTimeUtc { get; }
 
         public bool HasUnsyncedChanges
         {
@@ -57,5 +60,14 @@ namespace MyApp.Domain.Repositories
                 return !string.IsNullOrWhiteSpace(RemoteUrl);
             }
         }
+
+        public bool HasBranches
+        {
+            get
+            {
+                return Branches.Count > 0;
+            }
+        }
     }
 }
+

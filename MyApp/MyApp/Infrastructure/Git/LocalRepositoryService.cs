@@ -74,10 +74,11 @@ namespace MyApp.Infrastructure.Git
 
                 try
                 {
-                    IReadOnlyCollection<string> branches = GetBranches(repositoryDirectory.FullName);
+                    IReadOnlyCollection<RepositoryBranch> branches = GetBranches(repositoryDirectory.FullName);
                     string remoteUrl = GetRemoteUrl(repositoryDirectory.FullName);
                     RepositorySyncInfo syncInfo = GetRepositorySyncInfo(repositoryDirectory.FullName);
-                    LocalRepository repository = new LocalRepository(repositoryDirectory.Name, repositoryDirectory.FullName, remoteUrl, branches, syncInfo.HasUncommittedChanges, syncInfo.HasUnpushedCommits);
+                    DateTimeOffset? lastFetchTimeUtc = GetLastFetchTimeUtc(repositoryDirectory.FullName);
+                    LocalRepository repository = new LocalRepository(repositoryDirectory.Name, repositoryDirectory.FullName, remoteUrl, branches, syncInfo.HasUncommittedChanges, syncInfo.HasUnpushedCommits, lastFetchTimeUtc);
                     repositories.Add(repository);
                 }
                 catch (Exception exception)
@@ -588,10 +589,10 @@ namespace MyApp.Infrastructure.Git
             return true;
         }
 
-        private static IReadOnlyCollection<string> GetBranches(string repositoryPath)
+        private static IReadOnlyCollection<RepositoryBranch> GetBranches(string repositoryPath)
         {
-            List<string> branches = new List<string>();
-            string[] arguments = new[] { "branch", "--format=%(refname:short)" };
+            List<RepositoryBranch> branches = new List<RepositoryBranch>();
+            string[] arguments = new[] { "branch", "-vv" };
             CommandResult result = ExecuteGitCommand(repositoryPath, arguments);
 
             if (!result.Succeeded)
@@ -603,17 +604,103 @@ namespace MyApp.Infrastructure.Git
 
             foreach (string line in lines)
             {
-                string trimmed = line.Trim();
-
-                if (!string.IsNullOrEmpty(trimmed))
+                if (string.IsNullOrWhiteSpace(line))
                 {
-                    branches.Add(trimmed);
+                    continue;
                 }
+
+                bool isCurrent = line.StartsWith("*", StringComparison.Ordinal);
+                string normalized = isCurrent ? line.Substring(1) : line;
+                normalized = normalized.TrimStart();
+
+                if (normalized.StartsWith("+", StringComparison.Ordinal))
+                {
+                    normalized = normalized.Substring(1).TrimStart();
+                }
+
+                Match match = Regex.Match(normalized, @"^(?<name>\S+)\s+(?<commit>\S+)(?:\s+\[(?<tracking>[^\]]+)\])?.*$");
+
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                string name = match.Groups["name"].Value;
+                string trackingContent = match.Groups["tracking"].Success ? match.Groups["tracking"].Value : string.Empty;
+                bool hasUpstream = false;
+                bool upstreamGone = false;
+                string trackingBranch = string.Empty;
+                int aheadCount = 0;
+                int behindCount = 0;
+
+                if (!string.IsNullOrWhiteSpace(trackingContent))
+                {
+                    hasUpstream = true;
+
+                    if (string.Equals(trackingContent, "gone", StringComparison.OrdinalIgnoreCase))
+                    {
+                        upstreamGone = true;
+                    }
+                    else
+                    {
+                        int colonIndex = trackingContent.IndexOf(':');
+
+                        if (colonIndex >= 0)
+                        {
+                            trackingBranch = trackingContent.Substring(0, colonIndex).Trim();
+                            string statusSegment = trackingContent.Substring(colonIndex + 1).Trim();
+                            string[] statusParts = statusSegment.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+                            foreach (string statusPart in statusParts)
+                            {
+                                string trimmedPart = statusPart.Trim();
+
+                                if (trimmedPart.StartsWith("ahead", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    aheadCount = ParseTrackingCount(trimmedPart);
+                                }
+                                else if (trimmedPart.StartsWith("behind", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    behindCount = ParseTrackingCount(trimmedPart);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            trackingBranch = trackingContent.Trim();
+                        }
+                    }
+                }
+
+                RepositoryBranch branch = new RepositoryBranch(name, isCurrent, hasUpstream, upstreamGone, trackingBranch, aheadCount, behindCount);
+                branches.Add(branch);
             }
 
             return branches
-                .OrderBy(branch => branch, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(branch => branch.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        private static int ParseTrackingCount(string input)
+        {
+            string[] segments = input.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string segment in segments)
+            {
+                int parsedValue;
+
+                if (int.TryParse(segment, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsedValue))
+                {
+                    if (parsedValue < 0)
+                    {
+                        return 0;
+                    }
+
+                    return parsedValue;
+                }
+            }
+
+            return 0;
         }
 
         private static string GetRemoteUrl(string repositoryPath)
@@ -627,6 +714,34 @@ namespace MyApp.Infrastructure.Git
             }
 
             return result.StandardOutput.Trim();
+        }
+
+        private static DateTimeOffset? GetLastFetchTimeUtc(string repositoryPath)
+        {
+            try
+            {
+                string gitDirectoryPath = Path.Combine(repositoryPath, ".git");
+                string fetchHeadPath = Path.Combine(gitDirectoryPath, "FETCH_HEAD");
+
+                if (!File.Exists(fetchHeadPath))
+                {
+                    return null;
+                }
+
+                DateTime fetchHeadWriteTimeUtc = File.GetLastWriteTimeUtc(fetchHeadPath);
+
+                if (fetchHeadWriteTimeUtc == DateTime.MinValue || fetchHeadWriteTimeUtc == DateTime.MaxValue)
+                {
+                    return null;
+                }
+
+                DateTimeOffset fetchHeadTimestamp = new DateTimeOffset(fetchHeadWriteTimeUtc, TimeSpan.Zero);
+                return fetchHeadTimestamp;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private static CommandResult ExecuteGitCommand(string repositoryPath, IReadOnlyCollection<string> arguments, TimeSpan? timeout = null)

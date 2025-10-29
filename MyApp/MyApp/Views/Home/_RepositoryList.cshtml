@@ -31,13 +31,11 @@
                                             Local changes not synchronized
                                         </span>
                                     }
-                                    else
-                                    {
-                                        <span class="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-200">
-                                            <span class="size-1.5 rounded-full bg-emerald-400"></span>
-                                            Synchronized with origin
-                                        </span>
-                                    }
+
+                                    <span class="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-200">
+                                        <span class="size-1.5 rounded-full bg-emerald-400"></span>
+                                        @repository.FetchStatusLabel
+                                    </span>
 
                                     @if (!repository.HasRemote)
                                     {
@@ -95,10 +93,19 @@
                             else
                             {
                                 <ul class="grid gap-3 sm:grid-cols-2">
-                                    @foreach (string branch in repository.Branches)
+                                    @foreach (MyApp.Models.Home.RepositoryBranchViewModel branch in repository.Branches)
                                     {
                                         <li class="rounded-lg border border-white/10 bg-gray-900/60 px-4 py-3 text-xs text-gray-200">
-                                            <span class="font-semibold text-white">@branch</span>
+                                            <div class="flex items-start justify-between gap-2">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-white">@branch.Name</span>
+                                                    @if (branch.IsCurrent)
+                                                    {
+                                                        <span class="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-200">Current</span>
+                                                    }
+                                                </div>
+                                                <span class="text-gray-400">@branch.TrackingSummary</span>
+                                            </div>
                                         </li>
                                     }
                                 </ul>
