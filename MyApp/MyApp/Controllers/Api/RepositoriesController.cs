@@ -74,6 +74,12 @@ namespace MyApp.Controllers.Api
             return ExecuteRepositoryCommand(request, _repositoryService.PushRepository);
         }
 
+        [HttpPost("commit")]
+        public ActionResult<RepositoryCommandResponse> CommitRepository([FromBody] RepositoryCommandRequest request)
+        {
+            return ExecuteRepositoryCommand(request, _repositoryService.CommitRepository);
+        }
+
         [HttpPost("publish-branch")]
         public ActionResult<RepositoryCommandResponse> PublishBranch([FromBody] PublishBranchRequest request)
         {

@@ -231,6 +231,67 @@ namespace MyApp.Infrastructure.Git
             return ExecuteRepositoryCommand(repositoryPath, arguments, "Branch published successfully.", "Failed to publish the branch.");
         }
 
+        public GitCommandResult CommitRepository(string repositoryPath)
+        {
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                return new GitCommandResult(false, validationMessage, string.Empty);
+            }
+
+            string[] stageArguments = new[] { "add", "--all" };
+            CommandResult stageResult = ExecuteGitCommand(resolvedRepositoryPath, stageArguments, TimeSpan.FromMinutes(2));
+
+            if (!stageResult.Succeeded)
+            {
+                string stageCombinedOutput = string.IsNullOrWhiteSpace(stageResult.StandardError) ? stageResult.StandardOutput : stageResult.StandardError;
+                string stageTrimmedError = string.IsNullOrWhiteSpace(stageCombinedOutput) ? string.Empty : stageCombinedOutput.Trim();
+                string stageMessage = string.IsNullOrWhiteSpace(stageTrimmedError) ? "Failed to stage changes." : stageTrimmedError;
+                string stageArgumentsDisplay = string.Join(" ", stageArguments);
+                _logger.LogWarning("Git command {Arguments} failed for {RepositoryPath}: {Message}", stageArgumentsDisplay, resolvedRepositoryPath, stageMessage);
+                return new GitCommandResult(false, stageMessage, stageTrimmedError);
+            }
+
+            string[] statusArguments = new[] { "status", "--porcelain" };
+            CommandResult statusResult = ExecuteGitCommand(resolvedRepositoryPath, statusArguments, TimeSpan.FromMinutes(1));
+
+            if (!statusResult.Succeeded)
+            {
+                string statusCombinedOutput = string.IsNullOrWhiteSpace(statusResult.StandardError) ? statusResult.StandardOutput : statusResult.StandardError;
+                string statusTrimmedError = string.IsNullOrWhiteSpace(statusCombinedOutput) ? string.Empty : statusCombinedOutput.Trim();
+                string statusMessage = string.IsNullOrWhiteSpace(statusTrimmedError) ? "Failed to evaluate repository status." : statusTrimmedError;
+                string statusArgumentsDisplay = string.Join(" ", statusArguments);
+                _logger.LogWarning("Git command {Arguments} failed for {RepositoryPath}: {Message}", statusArgumentsDisplay, resolvedRepositoryPath, statusMessage);
+                return new GitCommandResult(false, statusMessage, statusTrimmedError);
+            }
+
+            string statusOutput = statusResult.StandardOutput;
+
+            if (string.IsNullOrWhiteSpace(statusOutput) || string.IsNullOrWhiteSpace(statusOutput.Trim()))
+            {
+                return new GitCommandResult(false, "There are no changes to commit.", string.Empty);
+            }
+
+            string[] commitArguments = new[] { "commit", "-m", "Commited from Flow" };
+            CommandResult commitResult = ExecuteGitCommand(resolvedRepositoryPath, commitArguments, TimeSpan.FromMinutes(2));
+
+            if (!commitResult.Succeeded)
+            {
+                string commitCombinedOutput = string.IsNullOrWhiteSpace(commitResult.StandardError) ? commitResult.StandardOutput : commitResult.StandardError;
+                string commitTrimmedError = string.IsNullOrWhiteSpace(commitCombinedOutput) ? string.Empty : commitCombinedOutput.Trim();
+                string commitMessage = string.IsNullOrWhiteSpace(commitTrimmedError) ? "Failed to commit changes." : commitTrimmedError;
+                string commitArgumentsDisplay = string.Join(" ", commitArguments);
+                _logger.LogWarning("Git command {Arguments} failed for {RepositoryPath}: {Message}", commitArgumentsDisplay, resolvedRepositoryPath, commitMessage);
+                return new GitCommandResult(false, commitMessage, commitTrimmedError);
+            }
+
+            string commitOutput = string.IsNullOrWhiteSpace(commitResult.StandardOutput) ? string.Empty : commitResult.StandardOutput.Trim();
+            string successMessage = string.IsNullOrWhiteSpace(commitOutput) ? "Changes committed successfully." : commitOutput;
+            return new GitCommandResult(true, successMessage, commitOutput);
+        }
+
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(repositoryUrl))

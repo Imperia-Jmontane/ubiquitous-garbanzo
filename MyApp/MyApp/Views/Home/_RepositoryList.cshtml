@@ -24,11 +24,11 @@
                                     <p class="mt-1 text-xs text-indigo-200">@repository.RemoteUrl</p>
                                 }
                                 <div class="mt-3 flex flex-wrap gap-2 text-xs">
-                                    @if (repository.HasUnsyncedChanges)
+                                    @if (repository.HasUncommittedChanges)
                                     {
                                         <span class="inline-flex items-center gap-1 rounded-full border border-yellow-500/60 bg-yellow-500/15 px-3 py-1 font-medium text-yellow-200">
                                             <span class="size-1.5 rounded-full bg-yellow-400"></span>
-                                            Local changes not synchronized
+                                            Uncommited Changes
                                         </span>
                                     }
 
@@ -106,12 +106,29 @@
                                                 </div>
                                                 <span class="text-gray-400">@branch.TrackingSummary</span>
                                             </div>
-                                            @if (!branch.HasUpstream && repository.HasRemote)
+                                            @{
+                                                bool showCommitButton = branch.IsCurrent && repository.HasUncommittedChanges;
+                                                bool showPublishButton = !branch.HasUpstream && repository.HasRemote;
+                                            }
+
+                                            @if (showCommitButton || showPublishButton)
                                             {
                                                 <div class="mt-3 flex justify-end">
-                                                    <button type="button" class="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-3 py-1 font-semibold text-white transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-repository-command="publishBranch" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-has-remote="@(repository.HasRemote ? "true" : "false")" data-repository-branch="@branch.Name" title="Publish branch" aria-label="Publish branch">
-                                                        Publish branch
-                                                    </button>
+                                                    <div class="flex flex-wrap justify-end gap-2">
+                                                        @if (showCommitButton)
+                                                        {
+                                                            <button type="button" class="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-3 py-1 font-semibold text-white transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-repository-command="commit" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-has-remote="@(repository.HasRemote ? "true" : "false")" title="Add and commit changes" aria-label="Add and commit changes">
+                                                                Add &amp; Commit
+                                                            </button>
+                                                        }
+
+                                                        @if (showPublishButton)
+                                                        {
+                                                            <button type="button" class="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-3 py-1 font-semibold text-white transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-repository-command="publishBranch" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-has-remote="@(repository.HasRemote ? "true" : "false")" data-repository-branch="@branch.Name" title="Publish branch" aria-label="Publish branch">
+                                                                Publish branch
+                                                            </button>
+                                                        }
+                                                    </div>
                                                 </div>
                                             }
                                         </li>

@@ -85,6 +85,15 @@
             let repositoryDeleteContext = null;
             let repositoryDeleteEscapeBound = false;
             const repositoryCommandConfigurations = {
+                commit: {
+                    endpoint: '/api/repositories/commit',
+                    successTitle: 'Commit created',
+                    successMessage: function (context) {
+                        return 'Committed local changes in ' + buildRepositoryName(context) + '.';
+                    },
+                    errorTitle: 'Commit failed',
+                    defaultError: 'Failed to commit local changes.'
+                },
                 fetch: {
                     endpoint: '/api/repositories/fetch',
                     successTitle: 'Fetch completed',

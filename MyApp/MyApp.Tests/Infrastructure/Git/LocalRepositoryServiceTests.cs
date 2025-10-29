@@ -186,8 +186,12 @@ namespace MyApp.Tests.Infrastructure.Git
 
             string localUpdatePath = Path.Combine(localRepositoryPath, "LOCAL.md");
             File.WriteAllText(localUpdatePath, "Local change");
-            ExecuteGit(localRepositoryPath, new[] { "add", "." });
-            ExecuteGit(localRepositoryPath, new[] { "commit", "-m", "Add local change" });
+            ExecuteGit(localRepositoryPath, new[] { "config", "user.email", "tests@example.com" });
+            ExecuteGit(localRepositoryPath, new[] { "config", "user.name", "Tests" });
+            GitCommandResult commitResult = service.CommitRepository(localRepositoryPath);
+            Assert.True(commitResult.Succeeded, commitResult.Message);
+            string latestCommitMessage = ReadGitOutput(localRepositoryPath, new[] { "log", "-1", "--pretty=%B" });
+            Assert.Equal("Commited from Flow", latestCommitMessage);
 
             GitCommandResult pushResult = service.PushRepository(localRepositoryPath);
             Assert.True(pushResult.Succeeded, pushResult.Message);
