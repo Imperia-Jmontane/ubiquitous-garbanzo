@@ -1216,6 +1216,19 @@
                     }
 
                     let debounceId = null;
+                    let blurTimeoutId = null;
+
+                    const toggleResultsVisibility = (visible) => {
+                        if (!resultsContainer) {
+                            return;
+                        }
+
+                        if (visible) {
+                            resultsContainer.classList.remove('hidden');
+                        } else {
+                            resultsContainer.classList.add('hidden');
+                        }
+                    };
 
                     const resetResults = () => {
                         if (list) {
@@ -1224,8 +1237,8 @@
                         }
 
                         if (emptyLabel) {
-                            emptyLabel.textContent = 'Start typing to search remote branches.';
-                            emptyLabel.classList.remove('hidden');
+                            emptyLabel.textContent = '';
+                            emptyLabel.classList.add('hidden');
                         }
 
                         if (errorLabel) {
@@ -1263,7 +1276,7 @@
                         errorLabel.classList.remove('hidden');
                     };
 
-                    const renderBranches = (branches) => {
+                    const renderBranches = (branches, searchTerm) => {
                         if (!list) {
                             return;
                         }
@@ -1274,7 +1287,12 @@
                             list.classList.add('hidden');
 
                             if (emptyLabel) {
-                                emptyLabel.textContent = 'No branches matched your search.';
+                                if (searchTerm && searchTerm.length > 0) {
+                                    emptyLabel.textContent = 'No branches matched your search.';
+                                } else {
+                                    emptyLabel.textContent = 'No remote branches were found.';
+                                }
+
                                 emptyLabel.classList.remove('hidden');
                             }
 
@@ -1342,18 +1360,18 @@
                     };
 
                     const fetchRemoteBranches = (searchTerm) => {
-                        if (!searchTerm) {
-                            resetResults();
-                            return;
-                        }
-
+                        const query = typeof searchTerm === 'string' ? searchTerm : '';
                         const parameters = new URLSearchParams();
                         parameters.set('repositoryPath', repositoryPath);
-                        parameters.set('query', searchTerm);
+                        parameters.set('query', query);
 
                         if (errorLabel) {
                             errorLabel.textContent = '';
                             errorLabel.classList.add('hidden');
+                        }
+
+                        if (emptyLabel) {
+                            emptyLabel.classList.add('hidden');
                         }
 
                         setLoading(true);
@@ -1376,7 +1394,7 @@
                             })
                             .then(function (payload) {
                                 const branches = payload && Array.isArray(payload.branches) ? payload.branches : [];
-                                renderBranches(branches);
+                                renderBranches(branches, query);
                             })
                             .catch(function (error) {
                                 resetResults();
@@ -1389,27 +1407,57 @@
 
                     resetResults();
 
-                    input.addEventListener('input', function () {
-                        const value = input.value.trim();
+                    toggleResultsVisibility(false);
 
+                    const requestBranches = (value, immediate) => {
                         if (debounceId !== null) {
                             window.clearTimeout(debounceId);
+                            debounceId = null;
                         }
 
-                        if (!value) {
-                            resetResults();
-                            return;
-                        }
-
-                        debounceId = window.setTimeout(function () {
+                        const execute = function () {
                             fetchRemoteBranches(value);
-                        }, 300);
+                        };
+
+                        if (immediate === true) {
+                            execute();
+                        } else {
+                            debounceId = window.setTimeout(execute, 300);
+                        }
+                    };
+
+                    input.addEventListener('focus', function () {
+                        if (blurTimeoutId !== null) {
+                            window.clearTimeout(blurTimeoutId);
+                            blurTimeoutId = null;
+                        }
+
+                        toggleResultsVisibility(true);
+                        requestBranches(input.value.trim(), true);
+                    });
+
+                    input.addEventListener('input', function () {
+                        toggleResultsVisibility(true);
+                        requestBranches(input.value.trim(), false);
                     });
 
                     input.addEventListener('keydown', function (event) {
                         if (event.key === 'Enter') {
                             event.preventDefault();
                         }
+                    });
+
+                    input.addEventListener('blur', function () {
+                        if (debounceId !== null) {
+                            window.clearTimeout(debounceId);
+                            debounceId = null;
+                        }
+
+                        blurTimeoutId = window.setTimeout(function () {
+                            toggleResultsVisibility(false);
+                            resetResults();
+                            blurTimeoutId = null;
+                        }, 150);
                     });
                 });
             }
