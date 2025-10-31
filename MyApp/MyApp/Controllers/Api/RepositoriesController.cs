@@ -99,7 +99,7 @@ namespace MyApp.Controllers.Api
         }
 
         [HttpGet("remote-branches")]
-        public ActionResult<RemoteBranchesResponse> GetRemoteBranches([FromQuery(Name = "repositoryPath")] string repositoryPath, [FromQuery(Name = "query")] string query)
+        public ActionResult<RemoteBranchesResponse> GetRemoteBranches([FromQuery(Name = "repositoryPath")] string repositoryPath, [FromQuery(Name = "query")] string? query)
         {
             string path = repositoryPath ?? string.Empty;
             string search = query ?? string.Empty;
