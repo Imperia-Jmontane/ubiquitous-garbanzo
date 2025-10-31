@@ -249,11 +249,32 @@
         </div>
 
         <div class="rounded-2xl border border-white/10 bg-gray-900/50 p-4">
-            <div class="flex flex-wrap items-center gap-4">
-                @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.AvatarUrl))
+            @{
+                string defaultAvatarUrl = Url.Content("~/img/default-avatar.svg");
+                string avatarUrlToUse = !string.IsNullOrWhiteSpace(Model.GitHubAccount.AvatarUrl) ? Model.GitHubAccount.AvatarUrl : defaultAvatarUrl;
+                string displayName;
+                if (Model.GitHubAccount.IsLinked && Model.GitHubAccount.DetailsAvailable)
                 {
-                    <img src="@Model.GitHubAccount.AvatarUrl" alt="Avatar de GitHub" class="size-14 rounded-full border border-white/10 shadow-md shadow-black/40" />
+                    if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Name))
+                    {
+                        displayName = Model.GitHubAccount.Name;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Login))
+                    {
+                        displayName = Model.GitHubAccount.Login;
+                    }
+                    else
+                    {
+                        displayName = "Perico el de los Palotes";
+                    }
                 }
+                else
+                {
+                    displayName = "Perico el de los Palotes";
+                }
+            }
+            <div class="flex flex-wrap items-center gap-4">
+                <img src="@avatarUrlToUse" alt="Avatar de @displayName" class="size-14 rounded-full border border-white/10 shadow-md shadow-black/40" />
                 <div class="flex-1 space-y-1">
                     <div class="flex items-center gap-2">
                         <h3 class="text-lg font-semibold text-white">Cuenta vinculada</h3>
@@ -266,27 +287,25 @@
                             <span class="inline-flex items-center rounded-full bg-gray-600/30 px-3 py-1 text-xs font-semibold text-gray-300">Sin vincular</span>
                         }
                     </div>
-                    @if (Model.GitHubAccount.IsLinked && Model.GitHubAccount.DetailsAvailable)
-                    {
-                        <p class="text-sm text-gray-300">
-                            @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Name))
-                            {
-                                <span class="font-medium text-white">@Model.GitHubAccount.Name</span>
-                                @:·
-                            }
+                    <p class="text-sm text-gray-300">
+                        <span class="font-medium text-white">@displayName</span>
+                        @if (Model.GitHubAccount.IsLinked && Model.GitHubAccount.DetailsAvailable && !string.IsNullOrWhiteSpace(Model.GitHubAccount.Login))
+                        {
+                            @:·
                             <span class="font-medium text-gray-100">@Model.GitHubAccount.Login</span>
-                            @if (!string.IsNullOrWhiteSpace(Model.GitHubAccount.Email))
-                            {
-                                @:·
-                                <a href="mailto:@Model.GitHubAccount.Email" class="text-indigo-300 hover:text-indigo-200">@Model.GitHubAccount.Email</a>
-                            }
-                        </p>
-                    }
-                    else if (!Model.GitHubAccount.IsLinked)
+                        }
+                        @if (Model.GitHubAccount.IsLinked && Model.GitHubAccount.DetailsAvailable && !string.IsNullOrWhiteSpace(Model.GitHubAccount.Email))
+                        {
+                            @:·
+                            <a href="mailto:@Model.GitHubAccount.Email" class="text-indigo-300 hover:text-indigo-200">@Model.GitHubAccount.Email</a>
+                        }
+                    </p>
+
+                    @if (!Model.GitHubAccount.IsLinked)
                     {
                         <p class="text-sm text-gray-400">Aún no hay una cuenta de GitHub vinculada para este usuario.</p>
                     }
-                    else
+                    else if (!Model.GitHubAccount.DetailsAvailable)
                     {
                         <p class="text-sm text-gray-400">No se pudieron obtener los detalles de la cuenta de GitHub.</p>
                     }
