@@ -110,9 +110,10 @@
                                                 bool showCommitButton = branch.IsCurrent && repository.HasUncommittedChanges;
                                                 bool showPublishButton = !branch.HasUpstream && repository.HasRemote;
                                                 bool showSwitchButton = !branch.IsCurrent;
+                                                bool showDeleteBranchButton = !branch.IsCurrent;
                                             }
 
-                                            @if (showCommitButton || showPublishButton || showSwitchButton)
+                                            @if (showCommitButton || showPublishButton || showSwitchButton || showDeleteBranchButton)
                                             {
                                                 <div class="mt-3 flex justify-end">
                                                     <div class="flex flex-wrap justify-end gap-2">
@@ -134,6 +135,13 @@
                                                         {
                                                             <button type="button" class="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-3 py-1 font-semibold text-white transition hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-repository-command="publishBranch" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-has-remote="@(repository.HasRemote ? "true" : "false")" data-repository-branch="@branch.Name" title="Publish branch" aria-label="Publish branch">
                                                                 Publish branch
+                                                            </button>
+                                                        }
+
+                                                        @if (showDeleteBranchButton)
+                                                        {
+                                                            <button type="button" class="inline-flex items-center gap-1 rounded-md border border-red-500/50 bg-red-500/10 px-3 py-1 font-semibold text-red-200 transition hover:bg-red-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500" data-branch-delete="true" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-remote="@repository.RemoteUrl" data-repository-has-remote="@(repository.HasRemote ? "true" : "false")" data-repository-uncommitted="@(repository.HasUncommittedChanges ? "true" : "false")" data-branch-name="@branch.Name" data-branch-has-upstream="@(branch.HasUpstream ? "true" : "false")" data-branch-upstream-gone="@(branch.UpstreamGone ? "true" : "false")" data-branch-ahead="@branch.AheadCount">
+                                                                Delete branch
                                                             </button>
                                                         }
                                                     </div>

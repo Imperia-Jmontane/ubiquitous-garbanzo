@@ -334,6 +334,47 @@ namespace MyApp.Infrastructure.Git
             return new GitCommandResult(true, successMessage, commitOutput);
         }
 
+        public GitCommandResult DeleteBranch(string repositoryPath, string branchName)
+        {
+            if (string.IsNullOrWhiteSpace(branchName))
+            {
+                return new GitCommandResult(false, "The branch name must be provided.", string.Empty);
+            }
+
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                return new GitCommandResult(false, validationMessage, string.Empty);
+            }
+
+            IReadOnlyCollection<RepositoryBranch> existingBranches = GetBranches(resolvedRepositoryPath);
+            RepositoryBranch? targetBranch = null;
+
+            foreach (RepositoryBranch branch in existingBranches)
+            {
+                if (string.Equals(branch.Name, branchName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetBranch = branch;
+                    break;
+                }
+            }
+
+            if (targetBranch == null)
+            {
+                return new GitCommandResult(false, "The branch could not be found.", string.Empty);
+            }
+
+            if (targetBranch.IsCurrent)
+            {
+                return new GitCommandResult(false, "The current branch cannot be deleted.", string.Empty);
+            }
+
+            string[] arguments = new[] { "branch", "-D", branchName };
+            return ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, arguments, "Branch deleted successfully.", "Failed to delete the branch.");
+        }
+
         private async Task<CloneRepositoryResult> CloneRepositoryInternalAsync(string repositoryUrl, IProgress<RepositoryCloneProgress> progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(repositoryUrl))

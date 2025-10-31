@@ -29,6 +29,8 @@ namespace MyApp.Application.Abstractions
 
         GitCommandResult CommitRepository(string repositoryPath);
 
+        GitCommandResult DeleteBranch(string repositoryPath, string branchName);
+
         RemoteBranchQueryResult GetRemoteBranches(string repositoryPath, string searchTerm);
     }
 }

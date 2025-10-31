@@ -84,6 +84,9 @@
             let repositoryDeleteDialog = null;
             let repositoryDeleteContext = null;
             let repositoryDeleteEscapeBound = false;
+            let branchDeleteDialog = null;
+            let branchDeleteContext = null;
+            let branchDeleteEscapeBound = false;
             const repositoryCommandConfigurations = {
                 commit: {
                     endpoint: '/api/repositories/commit',
@@ -1096,6 +1099,12 @@
                     bindRepositoryCommandButton(button);
                 });
 
+                const branchDeleteButtons = repositoryList.querySelectorAll('[data-branch-delete="true"]');
+
+                branchDeleteButtons.forEach(function (button) {
+                    bindBranchDeleteButton(button);
+                });
+
                 initializeBranchSearchers();
             }
 
@@ -1184,6 +1193,32 @@
                     };
 
                     executeRepositoryCommand(context, button);
+                });
+            }
+
+            function bindBranchDeleteButton(button) {
+                if (!button || button.dataset.branchBound === 'true') {
+                    return;
+                }
+
+                button.dataset.branchBound = 'true';
+                button.addEventListener('click', function () {
+                    const aheadRaw = parseInt(button.getAttribute('data-branch-ahead') || '0', 10);
+                    const aheadCount = Number.isNaN(aheadRaw) ? 0 : aheadRaw;
+
+                    const context = {
+                        name: button.getAttribute('data-repository-name') || '',
+                        path: button.getAttribute('data-repository-path') || '',
+                        remote: button.getAttribute('data-repository-remote') || '',
+                        repositoryHasRemote: button.getAttribute('data-repository-has-remote') === 'true',
+                        repositoryHasUncommitted: button.getAttribute('data-repository-uncommitted') === 'true',
+                        branch: button.getAttribute('data-branch-name') || '',
+                        branchHasUpstream: button.getAttribute('data-branch-has-upstream') === 'true',
+                        branchUpstreamGone: button.getAttribute('data-branch-upstream-gone') === 'true',
+                        branchAheadCount: aheadCount
+                    };
+
+                    showBranchDeleteConfirmation(context);
                 });
             }
 
@@ -1622,6 +1657,191 @@
                     '</div>';
             }
 
+            function showBranchDeleteConfirmation(context) {
+                if (!context || !context.path || !context.branch) {
+                    return;
+                }
+
+                const dialog = getBranchDeleteDialog();
+                const subtitle = dialog.querySelector('[data-branch-dialog-subtitle]');
+                const warning = dialog.querySelector('[data-branch-dialog-warning]');
+                const details = dialog.querySelector('[data-branch-dialog-details]');
+                const errorLabel = dialog.querySelector('[data-branch-dialog-error]');
+                const confirmButton = dialog.querySelector('[data-branch-dialog-confirm]');
+
+                branchDeleteContext = context;
+
+                if (subtitle) {
+                    subtitle.textContent = 'Eliminar la rama "' + context.branch + '" de ' + buildRepositoryName(context) + ' la quitará del repositorio local.';
+                }
+
+                if (warning) {
+                    warning.innerHTML = buildBranchWarningMarkup(context);
+                }
+
+                if (details) {
+                    const lines = [];
+                    lines.push('<span class="block"><span class="font-semibold text-white">Repositorio:</span> ' + escapeHtml(context.name) + '</span>');
+                    lines.push('<span class="block"><span class="font-semibold text-white">Rama:</span> ' + escapeHtml(context.branch) + '</span>');
+                    lines.push('<span class="block"><span class="font-semibold text-white">Ubicación:</span> ' + escapeHtml(context.path) + '</span>');
+
+                    if (context.remote && context.remote.length > 0) {
+                        lines.push('<span class="block"><span class="font-semibold text-white">Origin:</span> ' + escapeHtml(context.remote) + '</span>');
+                    } else {
+                        lines.push('<span class="block text-red-200">Sin remoto configurado.</span>');
+                    }
+
+                    details.innerHTML = lines.join('');
+                }
+
+                if (errorLabel) {
+                    errorLabel.classList.add('hidden');
+                    errorLabel.textContent = '';
+                }
+
+                setButtonLoading(confirmButton, false);
+
+                dialog.classList.remove('hidden');
+                dialog.classList.add('flex');
+            }
+
+            function getBranchDeleteDialog() {
+                if (branchDeleteDialog) {
+                    return branchDeleteDialog;
+                }
+
+                const overlay = document.createElement('div');
+                overlay.className = 'fixed inset-0 z-50 hidden items-center justify-center bg-black/60 px-4 py-6';
+                overlay.setAttribute('data-branch-delete-dialog', 'true');
+                overlay.innerHTML = '' +
+                    '<div class="w-full max-w-lg space-y-5 rounded-2xl bg-gray-900 p-6 shadow-xl">' +
+                    '  <div>' +
+                    '    <h3 class="text-lg font-semibold text-white">Eliminar rama</h3>' +
+                    '    <p class="mt-1 text-sm text-gray-300" data-branch-dialog-subtitle></p>' +
+                    '  </div>' +
+                    '  <div data-branch-dialog-warning></div>' +
+                    '  <div class="space-y-1 rounded-lg border border-white/10 bg-black/40 p-3 text-xs text-gray-300" data-branch-dialog-details></div>' +
+                    '  <div class="flex justify-end gap-3">' +
+                    '    <button type="button" class="inline-flex items-center justify-center rounded-md border border-white/10 bg-white/10 px-4 py-2 text-xs font-semibold text-gray-200 transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-branch-dialog-cancel>Cancelar</button>' +
+                    '    <button type="button" class="inline-flex items-center justify-center rounded-md border border-red-500/60 bg-red-500/20 px-4 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500" data-branch-dialog-confirm>Eliminar rama</button>' +
+                    '  </div>' +
+                    '  <p class="hidden text-xs text-red-300" data-branch-dialog-error></p>' +
+                    '</div>';
+
+                document.body.append(overlay);
+
+                const cancelButton = overlay.querySelector('[data-branch-dialog-cancel]');
+                const confirmButton = overlay.querySelector('[data-branch-dialog-confirm]');
+
+                if (cancelButton) {
+                    cancelButton.addEventListener('click', function () {
+                        hideBranchDeleteDialog();
+                    });
+                }
+
+                if (confirmButton) {
+                    confirmButton.addEventListener('click', function () {
+                        if (branchDeleteContext) {
+                            requestBranchDeletion(branchDeleteContext);
+                        }
+                    });
+                }
+
+                overlay.addEventListener('click', function (event) {
+                    if (event.target === overlay) {
+                        hideBranchDeleteDialog();
+                    }
+                });
+
+                if (!branchDeleteEscapeBound) {
+                    document.addEventListener('keydown', function (event) {
+                        if (event.key === 'Escape' && branchDeleteDialog && !branchDeleteDialog.classList.contains('hidden')) {
+                            hideBranchDeleteDialog();
+                        }
+                    });
+                    branchDeleteEscapeBound = true;
+                }
+
+                branchDeleteDialog = overlay;
+                return overlay;
+            }
+
+            function hideBranchDeleteDialog() {
+                if (!branchDeleteDialog) {
+                    return;
+                }
+
+                const confirmButton = branchDeleteDialog.querySelector('[data-branch-dialog-confirm]');
+                const errorLabel = branchDeleteDialog.querySelector('[data-branch-dialog-error]');
+
+                setButtonLoading(confirmButton, false);
+
+                if (errorLabel) {
+                    errorLabel.classList.add('hidden');
+                    errorLabel.textContent = '';
+                }
+
+                branchDeleteDialog.classList.add('hidden');
+                branchDeleteDialog.classList.remove('flex');
+                branchDeleteContext = null;
+            }
+
+            function buildBranchWarningMarkup(context) {
+                const issues = [];
+
+                if (context.repositoryHasUncommitted === true) {
+                    issues.push('Hay cambios sin confirmar en el repositorio.');
+                }
+
+                if (context.repositoryHasRemote !== true) {
+                    issues.push('El repositorio no tiene un remoto configurado.');
+                } else if (context.branchHasUpstream !== true || context.branchUpstreamGone === true) {
+                    issues.push('La rama no tiene un origen configurado.');
+                }
+
+                if (context.branchAheadCount > 0) {
+                    issues.push('La rama está adelantada respecto a origin y se perderán ' + formatCommitCount(context.branchAheadCount) + '.');
+                }
+
+                if (issues.length === 0) {
+                    return '' +
+                        '<div class="border-l-4 border-emerald-500 bg-emerald-500/10 p-4">' +
+                        '  <div class="flex">' +
+                        '    <div class="shrink-0">' +
+                        '      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5 text-emerald-400">' +
+                        '        <path d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.422.01l-3.25-3.2a1 1 0 0 1 1.4-1.428l2.53 2.493 6.544-6.59a1 1 0 0 1 1.442.002Z"></path>' +
+                        '      </svg>' +
+                        '    </div>' +
+                        '    <div class="ml-3">' +
+                        '      <p class="text-sm text-emerald-200">¿Estás seguro? Podrás recuperar la rama desde origin.</p>' +
+                        '    </div>' +
+                        '  </div>' +
+                        '</div>';
+                }
+
+                return '' +
+                    '<div class="border-l-4 border-red-500 bg-red-500/10 p-4">' +
+                    '  <div class="flex">' +
+                    '    <div class="shrink-0">' +
+                    '      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="size-5 text-red-400">' +
+                    '        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"></path>' +
+                    '      </svg>' +
+                    '    </div>' +
+                    '    <div class="ml-3">' +
+                    '      <p class="text-sm text-red-200">' + issues.map(function (issue) { return '<span class="block">' + issue + '</span>'; }).join('') + '</p>' +
+                    '    </div>' +
+                    '  </div>' +
+                    '</div>';
+            }
+
+            function formatCommitCount(count) {
+                if (count === 1) {
+                    return '1 commit';
+                }
+
+                return count + ' commits';
+            }
+
             function escapeHtml(value) {
                 if (value === undefined || value === null) {
                     return '';
@@ -1685,6 +1905,66 @@
                     .catch(function (error) {
                         if (errorLabel) {
                             errorLabel.textContent = error.message || 'Failed to delete repository.';
+                            errorLabel.classList.remove('hidden');
+                        }
+                    })
+                    .finally(function () {
+                        setButtonLoading(confirmButton, false);
+                    });
+            }
+
+            function requestBranchDeletion(context) {
+                if (!context || !context.path || !context.branch) {
+                    return;
+                }
+
+                const dialog = branchDeleteDialog;
+
+                if (!dialog) {
+                    return;
+                }
+
+                const confirmButton = dialog.querySelector('[data-branch-dialog-confirm]');
+                const errorLabel = dialog.querySelector('[data-branch-dialog-error]');
+
+                setButtonLoading(confirmButton, true);
+
+                if (errorLabel) {
+                    errorLabel.classList.add('hidden');
+                    errorLabel.textContent = '';
+                }
+
+                fetch('/api/repositories/branches', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ repositoryPath: context.path, branchName: context.branch })
+                })
+                    .then(function (response) {
+                        if (response.ok) {
+                            return response.json().catch(function () {
+                                return { succeeded: true };
+                            });
+                        }
+
+                        return response.json().catch(function () {
+                            return { message: 'Failed to delete branch.' };
+                        }).then(function (payload) {
+                            const message = payload && payload.message ? payload.message : 'Failed to delete branch.';
+                            throw new Error(message);
+                        });
+                    })
+                    .then(function (payload) {
+                        hideBranchDeleteDialog();
+                        const successText = payload && payload.message ? payload.message : 'Deleted ' + buildBranchName(context) + ' from ' + buildRepositoryName(context) + '.';
+                        showGlobalNotification('Branch deleted', successText, 'success');
+                        refreshRepositories();
+                    })
+                    .catch(function (error) {
+                        if (errorLabel) {
+                            errorLabel.textContent = error.message || 'Failed to delete branch.';
                             errorLabel.classList.remove('hidden');
                         }
                     })

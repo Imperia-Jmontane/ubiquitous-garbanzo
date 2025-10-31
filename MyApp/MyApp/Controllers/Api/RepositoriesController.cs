@@ -98,6 +98,14 @@ namespace MyApp.Controllers.Api
             return ExecuteRepositoryBranchCommand(repositoryPath, branchName, _repositoryService.SwitchBranch);
         }
 
+        [HttpDelete("branches")]
+        public ActionResult<RepositoryCommandResponse> DeleteBranch([FromBody] DeleteBranchRequest request)
+        {
+            string repositoryPath = request == null ? string.Empty : request.RepositoryPath;
+            string branchName = request == null ? string.Empty : request.BranchName;
+            return ExecuteRepositoryBranchCommand(repositoryPath, branchName, _repositoryService.DeleteBranch);
+        }
+
         [HttpGet("remote-branches")]
         public ActionResult<RemoteBranchesResponse> GetRemoteBranches([FromQuery(Name = "repositoryPath")] string repositoryPath, [FromQuery(Name = "query")] string? query)
         {
@@ -242,6 +250,13 @@ namespace MyApp.Controllers.Api
         }
 
         public sealed class SwitchBranchRequest
+        {
+            public string RepositoryPath { get; set; } = string.Empty;
+
+            public string BranchName { get; set; } = string.Empty;
+        }
+
+        public sealed class DeleteBranchRequest
         {
             public string RepositoryPath { get; set; } = string.Empty;
 
