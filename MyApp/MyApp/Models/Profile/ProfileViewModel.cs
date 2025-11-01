@@ -18,5 +18,7 @@ namespace MyApp.Models.Profile
         public GitHubAccountViewModel GitHubAccount { get; set; } = new GitHubAccountViewModel();
 
         public GitHubPersonalAccessTokenViewModel PersonalAccessToken { get; set; } = new GitHubPersonalAccessTokenViewModel();
+
+        public bool CreateLinkedBranches { get; set; }
     }
 }

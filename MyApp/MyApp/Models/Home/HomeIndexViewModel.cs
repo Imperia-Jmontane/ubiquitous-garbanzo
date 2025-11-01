@@ -6,7 +6,7 @@ namespace MyApp.Models.Home
 {
     public sealed class HomeIndexViewModel
     {
-        public HomeIndexViewModel(IReadOnlyCollection<RepositoryListItemViewModel> repositories, AddRepositoryRequest addRepository, string? notification, IReadOnlyCollection<CloneProgressViewModel> cloneProgressItems)
+        public HomeIndexViewModel(IReadOnlyCollection<RepositoryListItemViewModel> repositories, AddRepositoryRequest addRepository, string? notification, IReadOnlyCollection<CloneProgressViewModel> cloneProgressItems, bool createLinkedBranches)
         {
             if (repositories == null)
             {
@@ -27,6 +27,7 @@ namespace MyApp.Models.Home
             AddRepository = addRepository;
             Notification = notification;
             CloneProgressItems = cloneProgressItems.ToList();
+            CreateLinkedBranches = createLinkedBranches;
         }
 
         public IReadOnlyCollection<RepositoryListItemViewModel> Repositories { get; }
@@ -36,6 +37,8 @@ namespace MyApp.Models.Home
         public string? Notification { get; }
 
         public IReadOnlyCollection<CloneProgressViewModel> CloneProgressItems { get; }
+
+        public bool CreateLinkedBranches { get; }
 
         public bool IsCloneInProgress
         {

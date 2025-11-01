@@ -19,6 +19,8 @@ namespace MyApp.Data
 
         public DbSet<AuditTrailEntry> AuditTrailEntries { get; set; } = null!;
 
+        public DbSet<FlowBranchPreference> FlowBranchPreferences { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -45,6 +47,11 @@ namespace MyApp.Data
                 modelBuilder.Entity<AuditTrailEntry>(entity =>
                 {
                     entity.Property(entry => entry.OccurredAt).HasConversion(dateTimeOffsetConverter);
+                });
+
+                modelBuilder.Entity<FlowBranchPreference>(entity =>
+                {
+                    entity.Property(preference => preference.UpdatedAt).HasConversion(dateTimeOffsetConverter);
                 });
             }
 
@@ -113,6 +120,16 @@ namespace MyApp.Data
                     .IsRequired()
                     .HasMaxLength(100);
                 entity.HasIndex(entry => new { entry.UserId, entry.EventType, entry.OccurredAt });
+            });
+
+            modelBuilder.Entity<FlowBranchPreference>(entity =>
+            {
+                entity.ToTable("FlowBranchPreferences");
+                entity.HasKey(preference => preference.UserId);
+                entity.Property(preference => preference.CreateLinkedBranches)
+                    .IsRequired();
+                entity.Property(preference => preference.UpdatedAt)
+                    .IsRequired();
             });
         }
     }

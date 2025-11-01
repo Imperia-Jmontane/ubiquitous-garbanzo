@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeLevelSwitcher();
     initializeFlowchartTabs();
     initializeGitHubLinking();
+    initializeFlowBranchPreferenceToggle();
     initializeGitHubPersonalAccessTokenForm();
 });
 
@@ -498,6 +499,156 @@ const initializeGitHubLinking = () => {
             .catch(() => {
                 isProcessing = false;
                 button.removeAttribute("disabled");
+            });
+    });
+};
+
+const initializeFlowBranchPreferenceToggle = () => {
+    const container = document.querySelector("[data-flow-branch-preference]");
+    if (container === null) {
+        return;
+    }
+
+    const input = container.querySelector("[data-flow-branch-preference-input]");
+    const track = container.querySelector("[data-flow-branch-preference-track]");
+    const thumb = container.querySelector("[data-flow-branch-preference-thumb]");
+    const status = container.querySelector("[data-flow-branch-preference-status]");
+
+    if (input === null || track === null || thumb === null) {
+        return;
+    }
+
+    const endpoint = container.getAttribute("data-endpoint") ?? "/api/profile/flow-branches";
+    const userId = container.getAttribute("data-user-id") ?? "";
+    const enabledAttribute = container.getAttribute("data-enabled") ?? "false";
+    const statusStyles = ["text-gray-400", "text-emerald-300", "text-rose-300", "text-indigo-200"];
+
+    let isProcessing = false;
+    let currentValue = enabledAttribute.toLowerCase() === "true";
+
+    const updateAppearance = (enabled) => {
+        track.classList.remove("bg-indigo-500", "bg-white/5");
+        thumb.classList.remove("translate-x-5");
+
+        if (enabled === true) {
+            track.classList.add("bg-indigo-500");
+            thumb.classList.add("translate-x-5");
+        }
+        else {
+            track.classList.add("bg-white/5");
+        }
+    };
+
+    const setStatus = (message, tone) => {
+        if (status === null) {
+            return;
+        }
+
+        status.textContent = message;
+        statusStyles.forEach((className) => status.classList.remove(className));
+
+        if (tone === "success") {
+            status.classList.add("text-emerald-300");
+        }
+        else if (tone === "error") {
+            status.classList.add("text-rose-300");
+        }
+        else if (tone === "pending") {
+            status.classList.add("text-indigo-200");
+        }
+        else {
+            status.classList.add("text-gray-400");
+        }
+    };
+
+    updateAppearance(currentValue);
+    input.checked = currentValue;
+    setStatus("", "idle");
+
+    input.addEventListener("change", () => {
+        if (isProcessing === true) {
+            input.checked = currentValue;
+            return;
+        }
+
+        if (userId.length === 0) {
+            input.checked = currentValue;
+            updateAppearance(currentValue);
+            setStatus("No se pudo resolver el usuario actual.", "error");
+            return;
+        }
+
+        const nextValue = input.checked;
+        updateAppearance(nextValue);
+        setStatus("Guardando preferencia...", "pending");
+        isProcessing = true;
+        input.setAttribute("disabled", "disabled");
+
+        const payload = {
+            userId: userId,
+            createLinkedBranches: nextValue
+        };
+
+        fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "same-origin",
+            body: JSON.stringify(payload)
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().catch(() => {
+                        return { message: "No se pudo actualizar la preferencia." };
+                    }).then((payload) => {
+                        const message = typeof payload.message === "string" && payload.message.length > 0
+                            ? payload.message
+                            : "No se pudo actualizar la preferencia.";
+                        throw new Error(message);
+                    });
+                }
+
+                return response.json().catch(() => {
+                    return {
+                        succeeded: true,
+                        createLinkedBranches: nextValue,
+                        message: "Las ramas vinculadas se actualizaron."
+                    };
+                });
+            })
+            .then((payload) => {
+                const applied = typeof payload.createLinkedBranches === "boolean" ? payload.createLinkedBranches : nextValue;
+                currentValue = applied;
+                container.setAttribute("data-enabled", applied ? "true" : "false");
+                input.checked = applied;
+                updateAppearance(applied);
+
+                if (typeof payload.message === "string" && payload.message.trim().length > 0) {
+                    setStatus(payload.message, "success");
+                }
+                else if (applied === true) {
+                    setStatus("Las ramas vinculadas están activadas.", "success");
+                }
+                else {
+                    setStatus("Las ramas vinculadas están desactivadas.", "success");
+                }
+            })
+            .catch((error) => {
+                input.checked = currentValue;
+                updateAppearance(currentValue);
+                container.setAttribute("data-enabled", currentValue ? "true" : "false");
+
+                if (error && typeof error.message === "string" && error.message.length > 0) {
+                    setStatus(error.message, "error");
+                }
+                else {
+                    setStatus("No se pudo actualizar la preferencia.", "error");
+                }
+            })
+            .finally(() => {
+                isProcessing = false;
+                input.removeAttribute("disabled");
             });
     });
 };

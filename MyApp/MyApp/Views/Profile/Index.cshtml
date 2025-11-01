@@ -80,6 +80,29 @@
             </div>
         </div>
 
+        <div class="rounded-3xl border border-white/10 bg-gray-900/50 p-4"
+             data-flow-branch-preference
+             data-endpoint="/api/profile/flow-branches"
+             data-user-id="@Model.UserId"
+             data-enabled="@(Model.CreateLinkedBranches ? "true" : "false")">
+            <div class="flex items-center justify-between gap-4">
+                <span class="flex grow flex-col">
+                    <label class="text-sm font-medium text-white">Crear ramas vinculadas</label>
+                    <span class="text-sm text-gray-400">Al cambiar a una rama remota, Flow creará una rama hermana <span class="font-semibold text-gray-200">Flow/&lt;nombre&gt;</span> y la sincronizará con los cambios entrantes.</span>
+                </span>
+                <div class="relative inline-flex w-11 shrink-0 rounded-full bg-white/5 p-0.5 transition-colors duration-200 ease-in-out"
+                     data-flow-branch-preference-track>
+                    <span class="size-5 rounded-full bg-white shadow-xs ring-1 ring-gray-900/5 transition-transform duration-200 ease-in-out"
+                          data-flow-branch-preference-thumb></span>
+                    <input type="checkbox"
+                           class="absolute inset-0 appearance-none focus:outline-hidden"
+                           aria-label="Crear ramas vinculadas"
+                           data-flow-branch-preference-input />
+                </div>
+            </div>
+            <p class="mt-3 text-xs text-gray-400" data-flow-branch-preference-status></p>
+        </div>
+
         <div class="space-y-4 rounded-3xl border border-white/10 bg-gray-900/50 p-4"
              data-github-pat
              data-github-pat-endpoint="/api/github/personal-access-token"

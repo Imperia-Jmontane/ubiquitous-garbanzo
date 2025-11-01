@@ -119,7 +119,7 @@
                                                     <div class="flex flex-wrap justify-end gap-2">
                                                         @if (showSwitchButton)
                                                         {
-                                                            <button type="button" class="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-3 py-1 font-semibold text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-repository-command="switchBranch" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-branch="@branch.Name" title="Switch to this branch" aria-label="Switch to branch @branch.Name">
+                                                            <button type="button" class="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-3 py-1 font-semibold text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" data-repository-command="switchBranch" data-repository-name="@repository.Name" data-repository-path="@repository.RepositoryPath" data-repository-branch="@branch.Name" data-flow-linked-target="@(repository.HasRemote && branch.HasUpstream ? "true" : "false")" title="Switch to this branch" aria-label="Switch to branch @branch.Name">
                                                                 Switch to branch
                                                             </button>
                                                         }

@@ -167,6 +167,7 @@ namespace MyApp
             builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
             builder.Services.AddScoped<IGitHubOAuthStateRepository, GitHubOAuthStateRepository>();
             builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();
+            builder.Services.AddScoped<IFlowBranchPreferenceRepository, FlowBranchPreferenceRepository>();
 
             WebApplication app = builder.Build();
 

@@ -74,6 +74,7 @@
             const initialDataElement = document.getElementById('clone-progress-data');
             const globalNotificationRegion = document.querySelector('[data-global-notification-region="true"]');
             const globalNotificationStack = globalNotificationRegion ? globalNotificationRegion.querySelector('[data-notification-stack="true"]') : null;
+            const flowLinkedBranchesEnabled = @Model.CreateLinkedBranches.ToString().ToLowerInvariant();
 
             if (!cloneList) {
                 return;
@@ -1141,6 +1142,10 @@
                     payload.branchName = context.branch;
                 }
 
+                if (context.command === 'switchBranch' && flowLinkedBranchesEnabled === true && context.requiresFlowLink === true) {
+                    payload.useLinkedFlowBranch = true;
+                }
+
                 fetch(configuration.endpoint, {
                     method: 'POST',
                     headers: {
@@ -1189,7 +1194,8 @@
                         name: button.getAttribute('data-repository-name') || '',
                         path: button.getAttribute('data-repository-path') || '',
                         hasRemote: button.getAttribute('data-repository-has-remote') === 'true',
-                        branch: button.getAttribute('data-repository-branch') || ''
+                        branch: button.getAttribute('data-repository-branch') || '',
+                        requiresFlowLink: button.getAttribute('data-flow-linked-target') === 'true'
                     };
 
                     executeRepositoryCommand(context, button);
@@ -1351,6 +1357,7 @@
                             button.setAttribute('data-repository-name', repositoryName);
                             button.setAttribute('data-repository-path', repositoryPath);
                             button.setAttribute('data-repository-branch', branch.name || '');
+                            button.setAttribute('data-flow-linked-target', 'true');
 
                             const content = document.createElement('span');
                             content.className = 'flex items-center gap-2';

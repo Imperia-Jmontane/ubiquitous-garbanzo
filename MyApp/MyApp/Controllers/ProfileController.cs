@@ -9,6 +9,8 @@ using MyApp.Application.GitHubOAuth.Queries.GetGitHubOAuthStatus;
 using MyApp.Application.GitHubOAuth.Queries.GetGitHubAccountDetails;
 using MyApp.Application.GitHubPersonalAccessToken.DTOs;
 using MyApp.Application.GitHubPersonalAccessToken.Queries.GetGitHubPersonalAccessTokenStatus;
+using MyApp.Application.Profile.DTOs;
+using MyApp.Application.Profile.Queries.GetFlowBranchPreference;
 using MyApp.Models.Profile;
 
 namespace MyApp.Controllers
@@ -30,6 +32,7 @@ namespace MyApp.Controllers
             GetGitHubAccountDetailsQuery accountDetailsQuery = new GetGitHubAccountDetailsQuery(DemoUserId);
             GitHubAccountDetailsDto accountDetails = await mediator.Send(accountDetailsQuery, cancellationToken);
             GitHubPersonalAccessTokenStatusDto patStatus = await mediator.Send(new GetGitHubPersonalAccessTokenStatusQuery(), cancellationToken);
+            FlowBranchPreferenceDto flowPreference = await mediator.Send(new GetFlowBranchPreferenceQuery(DemoUserId), cancellationToken);
             string redirectUri = Url.Action("GitHubCallback", "Auth", null, Request.Scheme) ?? string.Empty;
             ProfileViewModel viewModel = new ProfileViewModel
             {
@@ -39,7 +42,8 @@ namespace MyApp.Controllers
                 UserId = DemoUserId,
                 GitHubRedirectUri = redirectUri,
                 GitHubAccount = CreateGitHubAccountViewModel(accountDetails),
-                PersonalAccessToken = CreatePersonalAccessTokenViewModel(patStatus)
+                PersonalAccessToken = CreatePersonalAccessTokenViewModel(patStatus),
+                CreateLinkedBranches = flowPreference.CreateLinkedBranches
             };
 
             return View(viewModel);

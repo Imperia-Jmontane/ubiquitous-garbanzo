@@ -231,46 +231,19 @@ namespace MyApp.Infrastructure.Git
             return ExecuteRepositoryCommand(repositoryPath, arguments, "Branch published successfully.", "Failed to publish the branch.");
         }
 
-        public GitCommandResult SwitchBranch(string repositoryPath, string branchName)
+        public GitCommandResult SwitchBranch(string repositoryPath, string branchName, bool useLinkedFlowBranch)
         {
             if (string.IsNullOrWhiteSpace(branchName))
             {
                 return new GitCommandResult(false, "The branch name must be provided.", string.Empty);
             }
 
-            string resolvedRepositoryPath;
-            string validationMessage;
-
-            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            if (useLinkedFlowBranch)
             {
-                return new GitCommandResult(false, validationMessage, string.Empty);
+                return SwitchToLinkedFlowBranch(repositoryPath, branchName);
             }
 
-            IReadOnlyCollection<RepositoryBranch> existingBranches = GetBranches(resolvedRepositoryPath);
-            bool branchExists = false;
-
-            foreach (RepositoryBranch branch in existingBranches)
-            {
-                if (string.Equals(branch.Name, branchName, StringComparison.OrdinalIgnoreCase))
-                {
-                    branchExists = true;
-                    break;
-                }
-            }
-
-            string[] arguments;
-
-            if (branchExists)
-            {
-                arguments = new[] { "switch", branchName };
-            }
-            else
-            {
-                string remoteReference = string.Format("origin/{0}", branchName);
-                arguments = new[] { "switch", "--track", remoteReference };
-            }
-
-            return ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, arguments, "Branch switched successfully.", "Failed to switch the branch.");
+            return SwitchBranchStandard(repositoryPath, branchName);
         }
 
         public GitCommandResult CommitRepository(string repositoryPath)
@@ -332,6 +305,127 @@ namespace MyApp.Infrastructure.Git
             string commitOutput = string.IsNullOrWhiteSpace(commitResult.StandardOutput) ? string.Empty : commitResult.StandardOutput.Trim();
             string successMessage = string.IsNullOrWhiteSpace(commitOutput) ? "Changes committed successfully." : commitOutput;
             return new GitCommandResult(true, successMessage, commitOutput);
+        }
+
+        private GitCommandResult SwitchBranchStandard(string repositoryPath, string branchName)
+        {
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                return new GitCommandResult(false, validationMessage, string.Empty);
+            }
+
+            IReadOnlyCollection<RepositoryBranch> existingBranches = GetBranches(resolvedRepositoryPath);
+            bool branchExists = false;
+
+            foreach (RepositoryBranch branch in existingBranches)
+            {
+                if (string.Equals(branch.Name, branchName, StringComparison.OrdinalIgnoreCase))
+                {
+                    branchExists = true;
+                    break;
+                }
+            }
+
+            string[] arguments;
+
+            if (branchExists)
+            {
+                arguments = new[] { "switch", branchName };
+            }
+            else
+            {
+                string remoteReference = string.Format("origin/{0}", branchName);
+                arguments = new[] { "switch", "--track", remoteReference };
+            }
+
+            return ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, arguments, "Branch switched successfully.", "Failed to switch the branch.");
+        }
+
+        private GitCommandResult SwitchToLinkedFlowBranch(string repositoryPath, string branchName)
+        {
+            string resolvedRepositoryPath;
+            string validationMessage;
+
+            if (!TryResolveRepositoryPath(repositoryPath, out resolvedRepositoryPath, out validationMessage))
+            {
+                return new GitCommandResult(false, validationMessage, string.Empty);
+            }
+
+            string trimmedBranchName = branchName.Trim();
+            string flowBranchName;
+            string upstreamBranchName;
+
+            if (trimmedBranchName.StartsWith("Flow/", StringComparison.OrdinalIgnoreCase))
+            {
+                flowBranchName = trimmedBranchName;
+                upstreamBranchName = trimmedBranchName.Substring("Flow/".Length);
+            }
+            else
+            {
+                flowBranchName = string.Concat("Flow/", trimmedBranchName);
+                upstreamBranchName = trimmedBranchName;
+            }
+
+            if (string.IsNullOrWhiteSpace(upstreamBranchName))
+            {
+                return new GitCommandResult(false, "The branch name must be provided.", string.Empty);
+            }
+
+            string remoteReference = string.Format("origin/{0}", upstreamBranchName);
+
+            string[] fetchArguments = new[] { "fetch", "origin", upstreamBranchName };
+            GitCommandResult fetchResult = ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, fetchArguments, "Remote branch fetched successfully.", "Failed to fetch the remote branch.");
+
+            if (!fetchResult.Succeeded)
+            {
+                return fetchResult;
+            }
+
+            IReadOnlyCollection<RepositoryBranch> existingBranches = GetBranches(resolvedRepositoryPath);
+            bool flowBranchExists = false;
+
+            foreach (RepositoryBranch branch in existingBranches)
+            {
+                if (string.Equals(branch.Name, flowBranchName, StringComparison.OrdinalIgnoreCase))
+                {
+                    flowBranchExists = true;
+                    break;
+                }
+            }
+
+            GitCommandResult switchResult;
+
+            if (flowBranchExists)
+            {
+                string[] switchArguments = new[] { "switch", flowBranchName };
+                switchResult = ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, switchArguments, "Branch switched successfully.", "Failed to switch the branch.");
+            }
+            else
+            {
+                string[] createArguments = new[] { "switch", "--create", flowBranchName, remoteReference };
+                switchResult = ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, createArguments, "Branch switched successfully.", "Failed to switch the branch.");
+            }
+
+            if (!switchResult.Succeeded)
+            {
+                return switchResult;
+            }
+
+            string[] mergeArguments = new[] { "merge", "--no-edit", "-s", "recursive", "-X", "theirs", remoteReference };
+            string mergeSuccessMessage = string.Format("Flow branch {0} updated from {1}.", flowBranchName, remoteReference);
+            string mergeErrorMessage = string.Format("Failed to merge {0} into {1}.", remoteReference, flowBranchName);
+            GitCommandResult mergeResult = ExecuteResolvedRepositoryCommand(resolvedRepositoryPath, mergeArguments, mergeSuccessMessage, mergeErrorMessage);
+
+            if (!mergeResult.Succeeded)
+            {
+                return mergeResult;
+            }
+
+            string finalMessage = string.IsNullOrWhiteSpace(mergeResult.Message) ? mergeSuccessMessage : mergeResult.Message;
+            return new GitCommandResult(true, finalMessage, mergeResult.Output);
         }
 
         public GitCommandResult DeleteBranch(string repositoryPath, string branchName)

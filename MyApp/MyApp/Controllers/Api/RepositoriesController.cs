@@ -95,7 +95,42 @@ namespace MyApp.Controllers.Api
         {
             string repositoryPath = request == null ? string.Empty : request.RepositoryPath;
             string branchName = request == null ? string.Empty : request.BranchName;
-            return ExecuteRepositoryBranchCommand(repositoryPath, branchName, _repositoryService.SwitchBranch);
+            bool useLinkedFlowBranch = request != null && request.UseLinkedFlowBranch;
+
+            if (string.IsNullOrWhiteSpace(repositoryPath) || string.IsNullOrWhiteSpace(branchName))
+            {
+                RepositoryCommandResponse errorResponse = new RepositoryCommandResponse
+                {
+                    Succeeded = false,
+                    Message = "The repository path and branch name must be provided.",
+                    Output = string.Empty
+                };
+
+                return BadRequest(errorResponse);
+            }
+
+            GitCommandResult result = _repositoryService.SwitchBranch(repositoryPath, branchName, useLinkedFlowBranch);
+
+            if (!result.Succeeded)
+            {
+                RepositoryCommandResponse errorResponse = new RepositoryCommandResponse
+                {
+                    Succeeded = false,
+                    Message = string.IsNullOrWhiteSpace(result.Message) ? "The operation could not be completed." : result.Message,
+                    Output = result.Output
+                };
+
+                return BadRequest(errorResponse);
+            }
+
+            RepositoryCommandResponse response = new RepositoryCommandResponse
+            {
+                Succeeded = true,
+                Message = string.IsNullOrWhiteSpace(result.Message) ? "Operation completed successfully." : result.Message,
+                Output = result.Output
+            };
+
+            return Ok(response);
         }
 
         [HttpDelete("branches")]
@@ -254,6 +289,8 @@ namespace MyApp.Controllers.Api
             public string RepositoryPath { get; set; } = string.Empty;
 
             public string BranchName { get; set; } = string.Empty;
+
+            public bool UseLinkedFlowBranch { get; set; }
         }
 
         public sealed class DeleteBranchRequest

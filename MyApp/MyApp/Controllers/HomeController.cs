@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using MyApp.Application.Abstractions;
+using MyApp.Application.Profile.DTOs;
+using MyApp.Application.Profile.Queries.GetFlowBranchPreference;
 using MyApp.Domain.Repositories;
 using MyApp.Models;
 using MyApp.Models.Home;
@@ -11,18 +14,21 @@ namespace MyApp.Controllers
 {
     public class HomeController : Controller
     {
+        private static readonly Guid DemoUserId = new Guid("11111111-1111-1111-1111-111111111111");
         private readonly ILogger<HomeController> _logger;
         private readonly ILocalRepositoryService _repositoryService;
         private readonly IRepositoryCloneCoordinator _cloneCoordinator;
+        private readonly IMediator mediator;
 
-        public HomeController(ILogger<HomeController> logger, ILocalRepositoryService repositoryService, IRepositoryCloneCoordinator cloneCoordinator)
+        public HomeController(ILogger<HomeController> logger, ILocalRepositoryService repositoryService, IRepositoryCloneCoordinator cloneCoordinator, IMediator mediator)
         {
             _logger = logger;
             _repositoryService = repositoryService;
             _cloneCoordinator = cloneCoordinator;
+            this.mediator = mediator;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
             IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
             string? addedRepositoryUrl = null;
@@ -51,7 +57,8 @@ namespace MyApp.Controllers
                 cloneProgressItems.Add(progressViewModel);
             }
 
-            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), cloneProgressItems);
+            FlowBranchPreferenceDto flowPreference = await mediator.Send(new GetFlowBranchPreferenceQuery(DemoUserId));
+            HomeIndexViewModel viewModel = CreateHomeIndexViewModel(repositories, addedRepositoryUrl, new AddRepositoryRequest(), cloneProgressItems, flowPreference.CreateLinkedBranches);
             return View(viewModel);
         }
 
@@ -62,12 +69,13 @@ namespace MyApp.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult AddRepository([Bind(Prefix = nameof(HomeIndexViewModel.AddRepository))] AddRepositoryRequest request)
+        public async Task<IActionResult> AddRepository([Bind(Prefix = nameof(HomeIndexViewModel.AddRepository))] AddRepositoryRequest request)
         {
             if (!ModelState.IsValid)
             {
                 IReadOnlyCollection<LocalRepository> repositories = _repositoryService.GetRepositories();
-                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, new List<CloneProgressViewModel>());
+                FlowBranchPreferenceDto flowPreference = await mediator.Send(new GetFlowBranchPreferenceQuery(DemoUserId));
+                HomeIndexViewModel invalidViewModel = CreateHomeIndexViewModel(repositories, null, request, new List<CloneProgressViewModel>(), flowPreference.CreateLinkedBranches);
                 return View("Index", invalidViewModel);
             }
 
@@ -110,10 +118,10 @@ namespace MyApp.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, IReadOnlyCollection<CloneProgressViewModel> cloneProgressItems)
+        private static HomeIndexViewModel CreateHomeIndexViewModel(IReadOnlyCollection<LocalRepository> repositories, string? notification, AddRepositoryRequest addRepositoryRequest, IReadOnlyCollection<CloneProgressViewModel> cloneProgressItems, bool createLinkedBranches)
         {
             List<RepositoryListItemViewModel> repositoryViewModels = MapRepositories(repositories);
-            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, cloneProgressItems);
+            return new HomeIndexViewModel(repositoryViewModels, addRepositoryRequest, notification, cloneProgressItems, createLinkedBranches);
         }
 
         private static List<RepositoryListItemViewModel> MapRepositories(IReadOnlyCollection<LocalRepository> repositories)
