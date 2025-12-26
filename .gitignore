@@ -64,3 +64,6 @@ MyApp/**/coverage/
 MyApp/**/App_Data/
 MyApp/**/GeneratedArtifacts/
 MyApp/**/obj/**/RefAssemblyCache/
+
+# Cloned repositories (temp folder for testing)
+MyApp/**/temp/

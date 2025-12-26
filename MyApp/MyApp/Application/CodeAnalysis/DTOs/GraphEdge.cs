@@ -1,4 +1,4 @@
-namespace MyApp.CodeAnalysis.Application.DTOs
+namespace MyApp.Application.CodeAnalysis.DTOs
 {
     public sealed class GraphEdge
     {

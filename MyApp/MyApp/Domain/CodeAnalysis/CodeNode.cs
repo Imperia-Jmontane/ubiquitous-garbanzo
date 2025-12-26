@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace MyApp.CodeAnalysis.Domain.CodeAnalysis
+namespace MyApp.Domain.CodeAnalysis
 {
     public sealed class CodeNode : CodeElement
     {

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace MyApp.CodeAnalysis.Application.DTOs
+namespace MyApp.Application.CodeAnalysis.DTOs
 {
     public sealed class IndexingResult
     {

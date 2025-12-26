@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MyApp.CodeAnalysis.Application.DTOs;
-using MyApp.CodeAnalysis.Domain.CodeAnalysis;
+using MyApp.Application.CodeAnalysis.DTOs;
 
-namespace MyApp.CodeAnalysis.Domain.Services
+namespace MyApp.Domain.CodeAnalysis
 {
     public interface ICodeGraphRepository
     {

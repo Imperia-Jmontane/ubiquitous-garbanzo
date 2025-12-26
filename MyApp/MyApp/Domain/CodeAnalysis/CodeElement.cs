@@ -1,4 +1,4 @@
-namespace MyApp.CodeAnalysis.Domain.CodeAnalysis
+namespace MyApp.Domain.CodeAnalysis
 {
     public abstract class CodeElement
     {

@@ -30,6 +30,18 @@
 
 ## Pending Feature: Code Analysis Integration
 
+### CRITICAL: Progress Tracking
+**When completing tasks from `checklist.md`, you MUST:**
+1. Mark completed items by changing `- [ ]` to `- [x]`
+2. Do this IMMEDIATELY after completing each task
+3. Commit the checklist update along with your code changes
+
+This allows tracking implementation progress. Example:
+```markdown
+- [x] Create `CSharpSymbolKind.cs`   ← Mark as done when file is created
+- [ ] Create `CSharpReferenceKind.cs` ← Still pending
+```
+
 ### Objective
 Integrate Sourcetrail-like code analysis functionality using Roslyn for C# projects, with interactive graph visualization. This allows users to:
 - Index C# repositories to extract symbols (classes, methods, properties, etc.)
@@ -42,24 +54,25 @@ Integrate Sourcetrail-like code analysis functionality using Roslyn for C# proje
 - **`Resources/README.md`** - Start here. Contains implementation order, key concepts, and all reference files.
 - **`Resources/`** folder - Complete reference implementations for all layers:
   - `SourcetrailReference/DatabaseSchema.sql` - Database schema with all tables and indices
-  - `EFCoreExamples/CodeAnalysisDbContext.cs` - EF Core configuration
+  - `EFCoreExamples/CodeAnalysisDbContext.cs` - EF Core configuration (to ADD to existing ApplicationDbContext)
   - `RoslynExamples/` - Roslyn syntax walkers for symbol collection
   - `BackgroundJobExamples/IndexingBackgroundService.cs` - Background job processing
   - `ApiExamples/CodeAnalysisApiController.cs` - API endpoints with security
   - `ViewExamples/CodeAnalysisIndex.cshtml` - Complete UI with Cytoscape.js
-- **`checklist.md`** - Detailed 6-phase implementation checklist
+- **`checklist.md`** - Detailed 6-phase implementation checklist (MARK ITEMS AS COMPLETE!)
 - **`code_analysis_integration_plan.md`** - High-level implementation plan
 
 ### Implementation Notes
-1. **Create separate project**: `MyApp.CodeAnalysis` with internal Domain/Application/Infrastructure folders
-2. **Separate database**: Use `code_analysis.db` (SQLite), not the main application database
-3. **MSBuildLocator**: Must be initialized FIRST in Program.cs before any other code
-4. **Two-pass indexing**: Declarations first, then references (ensures all symbols exist before recording edges)
-5. **Background processing**: Indexing must run in background, not block HTTP requests
-6. **Security**: Use repositoryId (not file paths) in API requests to prevent path traversal
+1. **Roslyn project only**: `MyApp.CodeAnalysis` is ONLY for Roslyn code (isolates heavy dependencies)
+2. **Entities in main project**: Domain entities go in `MyApp/MyApp/Domain/CodeAnalysis/`, NOT in the Roslyn project
+3. **Reuse ApplicationDbContext**: Add DbSets to existing context, do NOT create separate database
+4. **MSBuildLocator**: Must be initialized FIRST in Program.cs before any other code
+5. **Two-pass indexing**: Declarations first, then references (ensures all symbols exist before recording edges)
+6. **Background processing**: Indexing must run in background, not block HTTP requests
+7. **Security**: Use repositoryId (not file paths) in API requests to prevent path traversal
 
 ### Technical Stack
 - **Backend**: Roslyn (Microsoft.CodeAnalysis), EF Core, BackgroundService
 - **Frontend**: Cytoscape.js with dagre layout, Prism.js for syntax highlighting
-- **Database**: SQLite with optimized indices for graph queries
+- **Database**: Same SQLite database via ApplicationDbContext
 

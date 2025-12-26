@@ -81,7 +81,7 @@ MyApp.CodeAnalysis/                (SEPARATE PROJECT - Roslyn only)
 
 ### 1.1 Create Folder Structure in Main Project
 
-- [ ] Create domain folders for Code Analysis entities:
+- [x] Create domain folders for Code Analysis entities:
   ```bash
   cd /path/to/Flow/MyApp/MyApp
   mkdir -p Domain/CodeAnalysis
@@ -94,21 +94,21 @@ MyApp.CodeAnalysis/                (SEPARATE PROJECT - Roslyn only)
 
 ### 1.2 Create Roslyn Project (Isolated Dependencies)
 
-- [ ] Create a new class library project for Roslyn code only:
+- [x] Create a new class library project for Roslyn code only:
   ```bash
   cd /path/to/Flow/MyApp
   dotnet new classlib -n MyApp.CodeAnalysis -f net9.0
   dotnet sln add MyApp.CodeAnalysis/MyApp.CodeAnalysis.csproj
   ```
 
-- [ ] Add project reference from `MyApp` to `MyApp.CodeAnalysis`:
+- [x] Add project reference from `MyApp` to `MyApp.CodeAnalysis`:
   - Open `MyApp/MyApp.csproj`
   - Add inside `<ItemGroup>`:
     ```xml
     <ProjectReference Include="..\MyApp.CodeAnalysis\MyApp.CodeAnalysis.csproj" />
     ```
 
-- [ ] Add Roslyn NuGet packages to `MyApp.CodeAnalysis.csproj` (ONLY Roslyn packages here):
+- [x] Add Roslyn NuGet packages to `MyApp.CodeAnalysis.csproj` (ONLY Roslyn packages here):
   ```xml
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" />
@@ -120,12 +120,12 @@ MyApp.CodeAnalysis/                (SEPARATE PROJECT - Roslyn only)
 
   **Note:** EF Core packages are NOT needed here - entities live in main MyApp project.
 
-- [ ] Create the Roslyn indexer folder structure:
+- [x] Create the Roslyn indexer folder structure:
   ```bash
   mkdir -p MyApp.CodeAnalysis/Indexing
   ```
 
-- [ ] Verify both projects build without errors:
+- [x] Verify both projects build without errors:
   ```bash
   dotnet build
   ```
@@ -134,25 +134,25 @@ MyApp.CodeAnalysis/                (SEPARATE PROJECT - Roslyn only)
 
 Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (main project, NOT the Roslyn project)
 
-- [ ] Create `CSharpSymbolKind.cs`:
+- [x] Create `CSharpSymbolKind.cs`:
   - Location: `MyApp/MyApp/Domain/CodeAnalysis/CSharpSymbolKind.cs`
   - Copy enum values from `Resources/SourcetrailReference/DatabaseSchema.sql`
   - Include: Unknown, Namespace, Assembly, Module, Class, Struct, Interface, Enum, Delegate, Record, RecordStruct, Field, Property, Method, Constructor, Destructor, Operator, Indexer, Event, EnumMember, LocalVariable, Parameter, TypeParameter, File, Using, Attribute
 
-- [ ] Create `CSharpReferenceKind.cs`:
+- [x] Create `CSharpReferenceKind.cs`:
   - Location: `MyApp/MyApp/Domain/CodeAnalysis/CSharpReferenceKind.cs`
   - Copy enum values from `Resources/SourcetrailReference/DatabaseSchema.sql`
   - Include: Unknown, Inheritance, InterfaceImplementation, Call, TypeUsage, Override, FieldAccess, PropertyAccess, EventAccess, Contains, Import, TypeArgument, AttributeUsage, Instantiation, Cast, Throw, Catch
 
-- [ ] Create `LocationType.cs`:
+- [x] Create `LocationType.cs`:
   - Location: `MyApp/MyApp/Domain/CodeAnalysis/LocationType.cs`
   - Values: Definition = 0, Reference = 1, Scope = 2
 
-- [ ] Create `DefinitionKind.cs`:
+- [x] Create `DefinitionKind.cs`:
   - Location: `MyApp/MyApp/Domain/CodeAnalysis/DefinitionKind.cs`
   - Values: Explicit = 0, Implicit = 1
 
-- [ ] Create `IndexingStatus.cs`:
+- [x] Create `IndexingStatus.cs`:
   - Location: `MyApp/MyApp/Domain/CodeAnalysis/IndexingStatus.cs`
   - Values: Queued = 0, Running = 1, Completed = 2, Failed = 3, Cancelled = 4
   - **Note:** This is for background job tracking
@@ -161,11 +161,11 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (main project, NOT the Roslyn proj
 
 Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
 
-- [ ] Create `CodeElement.cs`:
+- [x] Create `CodeElement.cs`:
   - Properties: `long Id` (auto-increment primary key)
   - **Note:** Using `long` to avoid overflow on large repositories
 
-- [ ] Create `CodeNode.cs`:
+- [x] Create `CodeNode.cs`:
   - Inherits from or references `CodeElement`
   - Properties:
     - `long Id` (PK, same as element ID)
@@ -190,7 +190,7 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
     - `ICollection<CodeNode> ChildNodes`
     - `IndexedRepository? RepositorySnapshot`
 
-- [ ] Create `CodeEdge.cs`:
+- [x] Create `CodeEdge.cs`:
   - Properties:
     - `long Id` (PK)
     - `CSharpReferenceKind Type`
@@ -203,7 +203,7 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
     - `ICollection<Occurrence> Occurrences`
     - `IndexedRepository? RepositorySnapshot`
 
-- [ ] Create `IndexedRepository.cs` (NEW - for multi-repo and versioning support):
+- [x] Create `IndexedRepository.cs` (NEW - for multi-repo and versioning support):
   - Properties:
     - `long Id` (PK)
     - `string RepositoryId` (matches LocalRepository identifier from existing Domain)
@@ -222,7 +222,7 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
     - `ICollection<CodeNode> Nodes`
     - `ICollection<CodeEdge> Edges`
 
-- [ ] Create `SourceFile.cs`:
+- [x] Create `SourceFile.cs`:
   - Properties:
     - `long Id` (PK, also references CodeNode.Id)
     - `string Path` (relative path within repository, UNIQUE per repository)
@@ -237,7 +237,7 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
     - `ICollection<SourceLocation> SourceLocations`
     - `IndexedRepository RepositorySnapshot`
 
-- [ ] Create `SourceLocation.cs`:
+- [x] Create `SourceLocation.cs`:
   - Properties:
     - `long Id` (PK, auto-increment)
     - `long FileId` (FK to SourceFile)
@@ -252,7 +252,7 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
     - `SourceFile File`
     - `ICollection<Occurrence> Occurrences`
 
-- [ ] Create `Occurrence.cs`:
+- [x] Create `Occurrence.cs`:
   - This is a junction table (many-to-many)
   - Properties:
     - `long ElementId` (FK, part of composite PK)
@@ -260,7 +260,7 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
   - Navigation properties:
     - `SourceLocation SourceLocation`
 
-- [ ] Create `IndexingError.cs`:
+- [x] Create `IndexingError.cs`:
   - Properties:
     - `long Id` (PK)
     - `long RepositorySnapshotId` (FK to IndexedRepository)
@@ -273,11 +273,11 @@ Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
     - `IndexedRepository RepositorySnapshot`
     - `SourceFile? File`
 
-### 1.4 Create Domain Interfaces
+### 1.5 Create Domain Interfaces
 
-Create folder structure: `MyApp.CodeAnalysis/Domain/Services/`
+Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as entities)
 
-- [ ] Create `ICodeGraphRepository.cs`:
+- [x] Create `ICodeGraphRepository.cs`:
   ```csharp
   public interface ICodeGraphRepository
   {
@@ -331,7 +331,7 @@ Create folder structure: `MyApp.CodeAnalysis/Domain/Services/`
   }
   ```
 
-- [ ] Create `ICodeIndexer.cs`:
+- [x] Create `ICodeIndexer.cs`:
   ```csharp
   public interface ICodeIndexer
   {
@@ -344,7 +344,7 @@ Create folder structure: `MyApp.CodeAnalysis/Domain/Services/`
   }
   ```
 
-- [ ] Create `IIndexingJobService.cs` (NEW - for background job processing):
+- [x] Create `IIndexingJobService.cs` (NEW - for background job processing):
   ```csharp
   public interface IIndexingJobService
   {
@@ -365,17 +365,17 @@ Create folder structure: `MyApp.CodeAnalysis/Domain/Services/`
   }
   ```
 
-### 1.5 Create DTOs/Models
+### 1.6 Create DTOs/Models
 
-Create folder structure: `MyApp.CodeAnalysis/Application/DTOs/`
+Create in: `MyApp/MyApp/Application/CodeAnalysis/DTOs/`
 
-- [ ] Create `IndexingResult.cs`:
+- [x] Create `IndexingResult.cs`:
   - Properties: `long SnapshotId`, `int FilesIndexed`, `int SymbolsCollected`, `int ReferencesCollected`, `TimeSpan Duration`, `List<string> Errors`, `bool PartialSuccess` (true if indexed despite some errors)
 
-- [ ] Create `IndexingJobStatus.cs` (NEW):
+- [x] Create `IndexingJobStatus.cs` (NEW):
   - Properties: `string RepositoryId`, `IndexingStatus Status`, `DateTime? StartedAtUtc`, `DateTime? CompletedAtUtc`, `int? FilesIndexed`, `int? TotalFiles`, `string? CurrentFile`, `string? ErrorMessage`, `int ProgressPercent`
 
-- [ ] Create `GraphQueryOptions.cs`:
+- [x] Create `GraphQueryOptions.cs`:
   - Properties:
     - `string RepositoryId` (required - identify which repository)
     - `int MaxDepth` (default 2)
@@ -386,10 +386,10 @@ Create folder structure: `MyApp.CodeAnalysis/Application/DTOs/`
     - `string? NamespaceFilter` (optional - filter by namespace prefix)
     - `List<CSharpSymbolKind>? SymbolKindFilter` (optional)
 
-- [ ] Create `GraphData.cs`:
+- [x] Create `GraphData.cs`:
   - Properties: `List<GraphNode> Nodes`, `List<GraphEdge> Edges`, `bool HasMore` (for pagination)
 
-- [ ] Create `GraphNode.cs`:
+- [x] Create `GraphNode.cs`:
   - Properties:
     - `long Id`
     - `string SerializedName`
@@ -400,26 +400,26 @@ Create folder structure: `MyApp.CodeAnalysis/Application/DTOs/`
     - `int? Column`
     - `long? ParentId` (for containment hierarchy in UI)
 
-- [ ] Create `GraphEdge.cs`:
+- [x] Create `GraphEdge.cs`:
   - Properties:
     - `long Id`
     - `long SourceNodeId`
     - `long TargetNodeId`
     - `string Type` (string enum name, e.g., "Call", "Inheritance")
 
-- [ ] Create `ReferenceLocation.cs`:
+- [x] Create `ReferenceLocation.cs`:
   - Properties: `string FilePath`, `int Line`, `int Column`, `int EndLine`, `int EndColumn`, `string? Context` (surrounding code snippet)
 
-- [ ] Create `SymbolSearchResult.cs`:
+- [x] Create `SymbolSearchResult.cs`:
   - Properties: `long Id`, `string DisplayName`, `string SerializedName`, `string Kind` (string enum name), `string? FilePath`, `int? Line`
 
-### 1.6 Verification
+### 1.7 Verification
 
-- [ ] Build the project and fix any errors:
+- [x] Build the project and fix any errors:
   ```bash
   dotnet build MyApp.CodeAnalysis/MyApp.CodeAnalysis.csproj
   ```
-- [ ] Verify all files are in the correct locations
+- [x] Verify all files are in the correct locations
 - [ ] Ensure no `var` keywords are used (use explicit types)
 - [ ] Ensure PascalCase for all public members
 
@@ -555,20 +555,20 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   dotnet add MyApp/MyApp.csproj package Microsoft.EntityFrameworkCore.Design --version 9.0.0
   ```
 
-- [ ] Create initial migration:
+- [ ] Create migration (uses existing ApplicationDbContext):
   ```bash
-  cd MyApp
-  dotnet ef migrations add InitialCodeAnalysis --context CodeAnalysisDbContext --output-dir ../MyApp.CodeAnalysis/Infrastructure/Migrations
+  cd MyApp/MyApp
+  dotnet ef migrations add AddCodeAnalysis
   ```
 
-- [ ] Review generated migration and verify it matches the schema
+- [ ] Review generated migration in `Data/Migrations/` and verify it matches the schema
   - Check all indices are created
   - Check foreign keys are correct
   - Check nullable columns are correct
 
 - [ ] Apply migration:
   ```bash
-  dotnet ef database update --context CodeAnalysisDbContext
+  dotnet ef database update
   ```
 
 ### 2.5 Register Services in DI
@@ -645,7 +645,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 3.2 Create Workspace Loader
 
-Create folder structure: `MyApp.CodeAnalysis/Infrastructure/Roslyn/`
+Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 - [ ] Create `WorkspaceLoader.cs`:
   - Reference: `Resources/RoslynExamples/WorkspaceLoader.cs`
@@ -735,7 +735,7 @@ Create folder structure: `MyApp.CodeAnalysis/Infrastructure/Roslyn/`
 
 ### 3.6 Create Background Job Service
 
-- [ ] Create `IndexingJobService.cs` in `MyApp.CodeAnalysis/Infrastructure/Jobs/`:
+- [ ] Create `IndexingBackgroundService.cs` in `MyApp/MyApp/Infrastructure/CodeAnalysis/`:
   - Implement `IIndexingJobService`
   - Use a `ConcurrentDictionary<string, IndexingJobState>` for tracking job state
   - Inject `IServiceScopeFactory` to create scoped services for background work

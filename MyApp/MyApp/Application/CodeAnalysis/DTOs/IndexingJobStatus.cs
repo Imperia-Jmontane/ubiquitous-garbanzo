@@ -1,7 +1,7 @@
 using System;
-using MyApp.CodeAnalysis.Domain.CodeAnalysis;
+using MyApp.Domain.CodeAnalysis;
 
-namespace MyApp.CodeAnalysis.Application.DTOs
+namespace MyApp.Application.CodeAnalysis.DTOs
 {
     public sealed class IndexingJobStatus
     {
