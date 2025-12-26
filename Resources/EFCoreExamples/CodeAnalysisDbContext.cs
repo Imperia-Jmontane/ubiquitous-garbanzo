@@ -1,7 +1,19 @@
 // ============================================================================
-// REFERENCE FILE: EF Core DbContext for Code Analysis
-// This is a reference implementation for the junior developer.
-// DO NOT use directly - adapt to your project structure.
+// REFERENCE FILE: EF Core Configuration for Code Analysis
+//
+// INTEGRATION INSTRUCTIONS:
+// This file shows entity configurations to ADD to the existing ApplicationDbContext.
+// DO NOT create a separate DbContext - add these to MyApp/MyApp/Data/ApplicationDbContext.cs
+//
+// STEP 1: Create domain entities in MyApp/MyApp/Domain/CodeAnalysis/
+// STEP 2: Add DbSet<> properties to ApplicationDbContext
+// STEP 3: Add configuration calls in OnModelCreating
+// STEP 4: Run: dotnet ef migrations add AddCodeAnalysis
+//
+// The existing ApplicationDbContext already has:
+// - SQLite DateTimeOffset converters (reuse them!)
+// - Proper index naming conventions
+// - Cascade delete patterns
 // ============================================================================
 
 using Microsoft.EntityFrameworkCore;
@@ -10,40 +22,43 @@ using System;
 
 namespace MyApp.CodeAnalysis.Reference
 {
+    // =========================================================================
+    // EXAMPLE: How to extend ApplicationDbContext
+    //
+    // In your actual ApplicationDbContext.cs, add:
+    //
+    //     public DbSet<IndexedRepository> IndexedRepositories { get; set; } = null!;
+    //     public DbSet<CodeNode> CodeNodes { get; set; } = null!;
+    //     public DbSet<CodeEdge> CodeEdges { get; set; } = null!;
+    //     public DbSet<SourceFile> SourceFiles { get; set; } = null!;
+    //     public DbSet<SourceLocation> SourceLocations { get; set; } = null!;
+    //     public DbSet<Occurrence> Occurrences { get; set; } = null!;
+    //     public DbSet<IndexingError> IndexingErrors { get; set; } = null!;
+    //
+    // And in OnModelCreating, call:
+    //
+    //     ConfigureCodeAnalysisEntities(modelBuilder);
+    //
+    // The DateTimeOffset conversion is ALREADY CONFIGURED in ApplicationDbContext!
+    // =========================================================================
+
     /// <summary>
-    /// Example DbContext showing how to configure the Code Analysis database.
-    ///
-    /// KEY EF CORE CONCEPTS:
-    /// 1. DbSet<T> - Represents a table in the database
-    /// 2. OnModelCreating - Configure relationships, indices, and constraints
-    /// 3. ValueConverter - Convert between C# types and database types
-    /// 4. HasIndex - Create database indices for query performance
+    /// Reference implementation showing entity configurations.
+    /// Copy the ConfigureCodeAnalysisEntities method to your ApplicationDbContext.
     /// </summary>
-    public class CodeAnalysisDbContext : DbContext
+    public static class CodeAnalysisEntityConfigurations
     {
-        public CodeAnalysisDbContext(DbContextOptions<CodeAnalysisDbContext> options)
-            : base(options)
-        {
-        }
-
         // =====================================================================
-        // DbSet PROPERTIES
-        // Each DbSet represents a table in the database
+        // MAIN CONFIGURATION METHOD
+        // Copy this method to ApplicationDbContext and call it from OnModelCreating
         // =====================================================================
 
-        public DbSet<IndexedRepository> IndexedRepositories { get; set; } = null!;
-        public DbSet<CodeNode> Nodes { get; set; } = null!;
-        public DbSet<CodeEdge> Edges { get; set; } = null!;
-        public DbSet<SourceFile> Files { get; set; } = null!;
-        public DbSet<SourceLocation> SourceLocations { get; set; } = null!;
-        public DbSet<Occurrence> Occurrences { get; set; } = null!;
-        public DbSet<IndexingError> Errors { get; set; } = null!;
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        /// <summary>
+        /// Call this method from ApplicationDbContext.OnModelCreating
+        /// </summary>
+        public static void ConfigureCodeAnalysisEntities(ModelBuilder modelBuilder)
         {
-            base.OnModelCreating(modelBuilder);
-
-            // Apply all configurations
+            // Apply all Code Analysis entity configurations
             ConfigureIndexedRepository(modelBuilder);
             ConfigureCodeNode(modelBuilder);
             ConfigureCodeEdge(modelBuilder);
@@ -52,15 +67,14 @@ namespace MyApp.CodeAnalysis.Reference
             ConfigureOccurrence(modelBuilder);
             ConfigureIndexingError(modelBuilder);
 
-            // SQLite-specific: Handle DateTimeOffset conversion
-            // SQLite doesn't have a native DateTimeOffset type
-            ConfigureDateTimeOffsetConversion(modelBuilder);
+            // NOTE: DateTimeOffset conversion is ALREADY handled by ApplicationDbContext
+            // Do NOT add it again here
         }
 
         // =====================================================================
         // INDEXED REPOSITORY CONFIGURATION
         // =====================================================================
-        private void ConfigureIndexedRepository(ModelBuilder modelBuilder)
+        private static void ConfigureIndexedRepository(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<IndexedRepository>(entity =>
             {
@@ -114,7 +128,7 @@ namespace MyApp.CodeAnalysis.Reference
         // =====================================================================
         // CODE NODE CONFIGURATION
         // =====================================================================
-        private void ConfigureCodeNode(ModelBuilder modelBuilder)
+        private static void ConfigureCodeNode(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<CodeNode>(entity =>
             {
@@ -178,7 +192,7 @@ namespace MyApp.CodeAnalysis.Reference
         // =====================================================================
         // CODE EDGE CONFIGURATION
         // =====================================================================
-        private void ConfigureCodeEdge(ModelBuilder modelBuilder)
+        private static void ConfigureCodeEdge(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<CodeEdge>(entity =>
             {
@@ -206,7 +220,7 @@ namespace MyApp.CodeAnalysis.Reference
         // =====================================================================
         // SOURCE FILE CONFIGURATION
         // =====================================================================
-        private void ConfigureSourceFile(ModelBuilder modelBuilder)
+        private static void ConfigureSourceFile(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SourceFile>(entity =>
             {
@@ -245,7 +259,7 @@ namespace MyApp.CodeAnalysis.Reference
         // =====================================================================
         // SOURCE LOCATION CONFIGURATION
         // =====================================================================
-        private void ConfigureSourceLocation(ModelBuilder modelBuilder)
+        private static void ConfigureSourceLocation(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SourceLocation>(entity =>
             {
@@ -268,7 +282,7 @@ namespace MyApp.CodeAnalysis.Reference
         // =====================================================================
         // OCCURRENCE CONFIGURATION (junction table)
         // =====================================================================
-        private void ConfigureOccurrence(ModelBuilder modelBuilder)
+        private static void ConfigureOccurrence(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Occurrence>(entity =>
             {
@@ -286,7 +300,7 @@ namespace MyApp.CodeAnalysis.Reference
         // =====================================================================
         // INDEXING ERROR CONFIGURATION
         // =====================================================================
-        private void ConfigureIndexingError(ModelBuilder modelBuilder)
+        private static void ConfigureIndexingError(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<IndexingError>(entity =>
             {
@@ -314,39 +328,11 @@ namespace MyApp.CodeAnalysis.Reference
         }
 
         // =====================================================================
-        // SQLITE DATETIME CONVERSION
-        // SQLite stores DateTimeOffset as TEXT, need custom converter
+        // NOTE: DATETIME OFFSET CONVERSION
+        // The existing ApplicationDbContext already handles DateTimeOffset conversion
+        // for SQLite. See ApplicationDbContext.cs lines 28-56 for the implementation.
+        // DO NOT duplicate this configuration - it will cause conflicts.
         // =====================================================================
-        private void ConfigureDateTimeOffsetConversion(ModelBuilder modelBuilder)
-        {
-            // This is only needed for SQLite
-            // SQL Server handles DateTimeOffset natively
-
-            ValueConverter<DateTimeOffset, DateTime> dateTimeOffsetConverter =
-                new ValueConverter<DateTimeOffset, DateTime>(
-                    v => v.UtcDateTime,
-                    v => new DateTimeOffset(v, TimeSpan.Zero));
-
-            ValueConverter<DateTimeOffset?, DateTime?> nullableDateTimeOffsetConverter =
-                new ValueConverter<DateTimeOffset?, DateTime?>(
-                    v => v.HasValue ? v.Value.UtcDateTime : null,
-                    v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : null);
-
-            foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableEntityType entityType in modelBuilder.Model.GetEntityTypes())
-            {
-                foreach (Microsoft.EntityFrameworkCore.Metadata.IMutableProperty property in entityType.GetProperties())
-                {
-                    if (property.ClrType == typeof(DateTimeOffset))
-                    {
-                        property.SetValueConverter(dateTimeOffsetConverter);
-                    }
-                    else if (property.ClrType == typeof(DateTimeOffset?))
-                    {
-                        property.SetValueConverter(nullableDateTimeOffsetConverter);
-                    }
-                }
-            }
-        }
     }
 
     // =========================================================================

@@ -20,116 +20,146 @@ Before starting, ensure you have:
 
 ## Architecture Decision (Read First!)
 
+### Integration with Existing Infrastructure
+
+This feature **integrates with the existing Flow project infrastructure** rather than creating separate projects/databases. This decision was made because:
+
+1. Flow already has mature patterns: MediatR, FluentValidation, BackgroundService, EF Core
+2. Reusing `ApplicationDbContext` avoids managing multiple databases
+3. Existing patterns (repository, DI, logging) should be followed consistently
+4. Only Roslyn code needs isolation (in a separate class library for dependency management)
+
+**IMPORTANT: What to Reuse (DO NOT recreate these)**
+- `ApplicationDbContext` - Add Code Analysis DbSets here, not a new context
+- DateTimeOffset converters - Already configured for SQLite
+- MediatR command/query pattern - Follow existing handlers
+- FluentValidation - Auto-discovered validators
+- Serilog logging - Already configured
+- Repository pattern - Follow existing implementations
+
 ### Project Structure
 
-This feature uses a **separate `MyApp.CodeAnalysis` project** with proper internal layering. This decision was made because:
-
-1. CodeAnalysis is a major, self-contained feature with its own database
-2. It has complex infrastructure (Roslyn, MSBuild, graph queries)
-3. Separation allows isolated testing and potential reuse
-4. Keeps the main MyApp project focused on web UI/routing
-
-**Internal structure of MyApp.CodeAnalysis:**
 ```
-MyApp.CodeAnalysis/
-├── Domain/
-│   ├── Enums/          (CSharpSymbolKind, CSharpReferenceKind, etc.)
-│   ├── Entities/       (CodeNode, CodeEdge, SourceFile, etc.)
-│   └── Services/       (ICodeGraphRepository, ICodeIndexer, IIndexingJobService)
-├── Application/
-│   └── DTOs/           (GraphData, GraphNode, IndexingResult, IndexingStatus, etc.)
-├── Infrastructure/
-│   ├── Persistence/    (CodeAnalysisDbContext, CodeGraphRepository)
-│   ├── Roslyn/         (WorkspaceLoader, SymbolCollector, ReferenceCollector)
-│   ├── Jobs/           (IndexingJobService - background processing)
-│   └── Migrations/     (EF Core migrations - separate folder)
-└── MyApp.CodeAnalysis.csproj
+MyApp/
+├── Domain/CodeAnalysis/           (NEW - entities here)
+│   ├── CodeNode.cs
+│   ├── CodeEdge.cs
+│   ├── SourceFile.cs
+│   ├── SourceLocation.cs
+│   └── IndexedRepository.cs
+├── Application/CodeAnalysis/      (NEW - MediatR handlers)
+│   ├── Commands/IndexRepository/
+│   ├── Queries/GetGraph/
+│   └── DTOs/
+├── Infrastructure/CodeAnalysis/   (NEW - background service, repositories)
+│   ├── IndexingBackgroundService.cs
+│   └── CodeGraphRepository.cs
+├── Controllers/Api/
+│   └── CodeAnalysisController.cs  (NEW)
+├── Views/CodeAnalysis/            (NEW)
+│   └── Index.cshtml
+└── Data/
+    └── ApplicationDbContext.cs    (EXTEND - add DbSets)
+
+MyApp.CodeAnalysis/                (SEPARATE PROJECT - Roslyn only)
+├── Indexing/
+│   ├── WorkspaceLoader.cs
+│   ├── SymbolDeclarationCollector.cs
+│   └── ReferenceCollector.cs
+└── MyApp.CodeAnalysis.csproj      (Roslyn NuGet packages isolated here)
 ```
 
 ### Database Strategy
 
-- **Separate SQLite database** (`code_analysis.db`) from the main application database
-- Configuration via `appsettings.json` under `CodeAnalysis:ConnectionString`
-- Migrations in separate folder to avoid conflicts
+- **Same SQLite database** as main application via `ApplicationDbContext`
+- Add migration: `dotnet ef migrations add AddCodeAnalysis`
+- See `Resources/EFCoreExamples/CodeAnalysisDbContext.cs` for entity configurations
 
 ---
 
 ## Phase 1: Project Setup and Domain Layer
 
-### 1.1 Create New Project
+### 1.1 Create Folder Structure in Main Project
 
-- [ ] Create a new class library project named `MyApp.CodeAnalysis`
+- [ ] Create domain folders for Code Analysis entities:
+  ```bash
+  cd /path/to/Flow/MyApp/MyApp
+  mkdir -p Domain/CodeAnalysis
+  mkdir -p Application/CodeAnalysis/Commands/IndexRepository
+  mkdir -p Application/CodeAnalysis/Queries/GetGraph
+  mkdir -p Application/CodeAnalysis/DTOs
+  mkdir -p Infrastructure/CodeAnalysis
+  mkdir -p Views/CodeAnalysis
+  ```
+
+### 1.2 Create Roslyn Project (Isolated Dependencies)
+
+- [ ] Create a new class library project for Roslyn code only:
   ```bash
   cd /path/to/Flow/MyApp
   dotnet new classlib -n MyApp.CodeAnalysis -f net9.0
   dotnet sln add MyApp.CodeAnalysis/MyApp.CodeAnalysis.csproj
   ```
 
-- [ ] Add project reference from `MyApp` to `MyApp.CodeAnalysis`
+- [ ] Add project reference from `MyApp` to `MyApp.CodeAnalysis`:
   - Open `MyApp/MyApp.csproj`
   - Add inside `<ItemGroup>`:
     ```xml
     <ProjectReference Include="..\MyApp.CodeAnalysis\MyApp.CodeAnalysis.csproj" />
     ```
 
-- [ ] Add required NuGet packages to `MyApp.CodeAnalysis.csproj`:
+- [ ] Add Roslyn NuGet packages to `MyApp.CodeAnalysis.csproj` (ONLY Roslyn packages here):
   ```xml
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.8.0" />
     <PackageReference Include="Microsoft.Build.Locator" Version="1.6.10" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
   </ItemGroup>
   ```
 
-- [ ] Create the folder structure:
+  **Note:** EF Core packages are NOT needed here - entities live in main MyApp project.
+
+- [ ] Create the Roslyn indexer folder structure:
   ```bash
-  mkdir -p MyApp.CodeAnalysis/Domain/Enums
-  mkdir -p MyApp.CodeAnalysis/Domain/Entities
-  mkdir -p MyApp.CodeAnalysis/Domain/Services
-  mkdir -p MyApp.CodeAnalysis/Application/DTOs
-  mkdir -p MyApp.CodeAnalysis/Infrastructure/Persistence
-  mkdir -p MyApp.CodeAnalysis/Infrastructure/Roslyn
-  mkdir -p MyApp.CodeAnalysis/Infrastructure/Jobs
+  mkdir -p MyApp.CodeAnalysis/Indexing
   ```
 
-- [ ] Verify the project builds without errors:
+- [ ] Verify both projects build without errors:
   ```bash
-  dotnet build MyApp.CodeAnalysis/MyApp.CodeAnalysis.csproj
+  dotnet build
   ```
 
-### 1.2 Create Domain Enums
+### 1.3 Create Domain Enums
 
-Create folder structure: `MyApp.CodeAnalysis/Domain/Enums/`
+Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (main project, NOT the Roslyn project)
 
 - [ ] Create `CSharpSymbolKind.cs`:
-  - Location: `MyApp.CodeAnalysis/Domain/Enums/CSharpSymbolKind.cs`
-  - Copy enum values from `Resources/SourcetrailReference/DatabaseSchema.sql` (lines with CSharpSymbolKind comments)
+  - Location: `MyApp/MyApp/Domain/CodeAnalysis/CSharpSymbolKind.cs`
+  - Copy enum values from `Resources/SourcetrailReference/DatabaseSchema.sql`
   - Include: Unknown, Namespace, Assembly, Module, Class, Struct, Interface, Enum, Delegate, Record, RecordStruct, Field, Property, Method, Constructor, Destructor, Operator, Indexer, Event, EnumMember, LocalVariable, Parameter, TypeParameter, File, Using, Attribute
 
 - [ ] Create `CSharpReferenceKind.cs`:
-  - Location: `MyApp.CodeAnalysis/Domain/Enums/CSharpReferenceKind.cs`
-  - Copy enum values from `Resources/SourcetrailReference/DatabaseSchema.sql` (lines with CSharpReferenceKind comments)
+  - Location: `MyApp/MyApp/Domain/CodeAnalysis/CSharpReferenceKind.cs`
+  - Copy enum values from `Resources/SourcetrailReference/DatabaseSchema.sql`
   - Include: Unknown, Inheritance, InterfaceImplementation, Call, TypeUsage, Override, FieldAccess, PropertyAccess, EventAccess, Contains, Import, TypeArgument, AttributeUsage, Instantiation, Cast, Throw, Catch
 
 - [ ] Create `LocationType.cs`:
-  - Location: `MyApp.CodeAnalysis/Domain/Enums/LocationType.cs`
+  - Location: `MyApp/MyApp/Domain/CodeAnalysis/LocationType.cs`
   - Values: Definition = 0, Reference = 1, Scope = 2
 
 - [ ] Create `DefinitionKind.cs`:
-  - Location: `MyApp.CodeAnalysis/Domain/Enums/DefinitionKind.cs`
+  - Location: `MyApp/MyApp/Domain/CodeAnalysis/DefinitionKind.cs`
   - Values: Explicit = 0, Implicit = 1
 
 - [ ] Create `IndexingStatus.cs`:
-  - Location: `MyApp.CodeAnalysis/Domain/Enums/IndexingStatus.cs`
+  - Location: `MyApp/MyApp/Domain/CodeAnalysis/IndexingStatus.cs`
   - Values: Queued = 0, Running = 1, Completed = 2, Failed = 3, Cancelled = 4
   - **Note:** This is for background job tracking
 
-### 1.3 Create Domain Entities
+### 1.4 Create Domain Entities
 
-Create folder structure: `MyApp.CodeAnalysis/Domain/Entities/`
+Create in: `MyApp/MyApp/Domain/CodeAnalysis/` (same folder as enums)
 
 - [ ] Create `CodeElement.cs`:
   - Properties: `long Id` (auto-increment primary key)
@@ -403,112 +433,79 @@ Create folder structure: `MyApp.CodeAnalysis/Application/DTOs/`
   ```json
   {
     "CodeAnalysis": {
-      "ConnectionString": "Data Source={AppDataPath}/code_analysis.db",
       "MaxIndexingConcurrency": 1,
       "IndexingTimeoutMinutes": 30
     }
   }
   ```
 
-- [ ] Create `CodeAnalysisOptions.cs` in `MyApp.CodeAnalysis/Application/`:
+  **Note:** No separate ConnectionString needed - uses existing ApplicationDbContext.
+
+- [ ] Create `CodeAnalysisOptions.cs` in `MyApp/MyApp/Application/Configuration/`:
   ```csharp
   public sealed class CodeAnalysisOptions
   {
-      public string ConnectionString { get; set; } = "Data Source=code_analysis.db";
       public int MaxIndexingConcurrency { get; set; } = 1;
       public int IndexingTimeoutMinutes { get; set; } = 30;
   }
   ```
 
-### 2.2 Create DbContext
+### 2.2 Extend Existing ApplicationDbContext
 
-Create folder structure: `MyApp.CodeAnalysis/Infrastructure/Persistence/`
+**IMPORTANT:** Do NOT create a separate DbContext. Extend the existing one.
 
-- [ ] Create `CodeAnalysisDbContext.cs`:
-  - Inherit from `DbContext`
-  - Add `DbSet<T>` properties for each entity:
-    - `DbSet<IndexedRepository> IndexedRepositories`
-    - `DbSet<CodeNode> Nodes`
-    - `DbSet<CodeEdge> Edges`
-    - `DbSet<SourceFile> Files`
-    - `DbSet<SourceLocation> SourceLocations`
-    - `DbSet<Occurrence> Occurrences`
-    - `DbSet<IndexingError> Errors`
-  - Override `OnModelCreating` to configure:
-    - Primary keys
-    - Foreign key relationships
-    - Indices (VERY IMPORTANT for performance)
-    - Unique constraints
+Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
-- [ ] Configure entity relationships in `OnModelCreating`:
+- [ ] Add DbSet properties for Code Analysis entities:
   ```csharp
-  // Key indices for performance (from Resources/SourcetrailReference/DatabaseSchema.sql)
-
-  // Node lookups by name (for search)
-  modelBuilder.Entity<CodeNode>()
-      .HasIndex(n => n.SerializedName);
-  modelBuilder.Entity<CodeNode>()
-      .HasIndex(n => n.DisplayName);
-  modelBuilder.Entity<CodeNode>()
-      .HasIndex(n => n.NormalizedName);  // For LIKE searches
-  modelBuilder.Entity<CodeNode>()
-      .HasIndex(n => n.Type);
-  modelBuilder.Entity<CodeNode>()
-      .HasIndex(n => new { n.RepositorySnapshotId, n.SerializedName })
-      .IsUnique();
-
-  // Edge lookups (for graph traversal)
-  modelBuilder.Entity<CodeEdge>()
-      .HasIndex(e => e.SourceNodeId);
-  modelBuilder.Entity<CodeEdge>()
-      .HasIndex(e => e.TargetNodeId);
-  modelBuilder.Entity<CodeEdge>()
-      .HasIndex(e => e.Type);
-  modelBuilder.Entity<CodeEdge>()
-      .HasIndex(e => new { e.SourceNodeId, e.TargetNodeId, e.Type });
-
-  // Source location lookups (for navigation)
-  modelBuilder.Entity<SourceLocation>()
-      .HasIndex(l => l.FileId);
-  modelBuilder.Entity<SourceLocation>()
-      .HasIndex(l => new { l.FileId, l.StartLine, l.StartColumn });
-
-  // Occurrence lookups (for finding all usages)
-  modelBuilder.Entity<Occurrence>()
-      .HasKey(o => new { o.ElementId, o.SourceLocationId });
-  modelBuilder.Entity<Occurrence>()
-      .HasIndex(o => o.ElementId);
-  modelBuilder.Entity<Occurrence>()
-      .HasIndex(o => o.SourceLocationId);
-
-  // File lookups
-  modelBuilder.Entity<SourceFile>()
-      .HasIndex(f => new { f.RepositorySnapshotId, f.Path })
-      .IsUnique();
-  modelBuilder.Entity<SourceFile>()
-      .HasIndex(f => f.FileHash);
-
-  // Repository snapshot lookups
-  modelBuilder.Entity<IndexedRepository>()
-      .HasIndex(r => r.RepositoryId);
-  modelBuilder.Entity<IndexedRepository>()
-      .HasIndex(r => new { r.RepositoryId, r.CommitSha });
+  // Add these DbSet properties to ApplicationDbContext
+  public DbSet<IndexedRepository> IndexedRepositories { get; set; } = null!;
+  public DbSet<CodeNode> CodeNodes { get; set; } = null!;
+  public DbSet<CodeEdge> CodeEdges { get; set; } = null!;
+  public DbSet<SourceFile> SourceFiles { get; set; } = null!;
+  public DbSet<SourceLocation> SourceLocations { get; set; } = null!;
+  public DbSet<Occurrence> Occurrences { get; set; } = null!;
+  public DbSet<IndexingError> IndexingErrors { get; set; } = null!;
   ```
 
-- [ ] Configure relationships:
-  - `CodeNode` -> `CodeEdge` (one-to-many for OutgoingEdges via SourceNodeId)
-  - `CodeNode` -> `CodeEdge` (one-to-many for IncomingEdges via TargetNodeId)
-  - `CodeNode` -> `CodeNode` (self-referencing for ParentNode/ChildNodes)
-  - `SourceFile` -> `SourceLocation` (one-to-many)
-  - `IndexedRepository` -> `SourceFile` (one-to-many)
-  - `IndexedRepository` -> `CodeNode` (one-to-many)
-  - `Occurrence` composite key (ElementId, SourceLocationId)
+- [ ] Add configuration call in `OnModelCreating`:
+  ```csharp
+  protected override void OnModelCreating(ModelBuilder modelBuilder)
+  {
+      base.OnModelCreating(modelBuilder);
 
-### 2.3 Create Repository Implementation
+      // Existing configurations...
 
-- [ ] Create `CodeGraphRepository.cs`:
-  - Implement `ICodeGraphRepository`
-  - Inject `CodeAnalysisDbContext` via constructor
+      // Add this line:
+      ConfigureCodeAnalysisEntities(modelBuilder);
+  }
+  ```
+
+- [ ] Copy entity configuration methods from `Resources/EFCoreExamples/CodeAnalysisDbContext.cs`:
+  - Copy `ConfigureCodeAnalysisEntities` and all `Configure*` methods
+  - These configure indices, relationships, and constraints
+  - **DO NOT copy DateTimeOffset conversion** - already exists in ApplicationDbContext
+
+### 2.3 Create Migration
+
+- [ ] Generate migration for Code Analysis tables:
+  ```bash
+  cd MyApp/MyApp
+  dotnet ef migrations add AddCodeAnalysis
+  ```
+
+- [ ] Verify migration was created in `Data/Migrations/`
+
+- [ ] Test migration applies cleanly:
+  ```bash
+  dotnet ef database update
+  ```
+
+### 2.4 Create Repository Implementation
+
+- [ ] Create `CodeGraphRepository.cs` in `MyApp/MyApp/Infrastructure/CodeAnalysis/`:
+  - Implement `ICodeGraphRepository` interface
+  - Inject `ApplicationDbContext` via constructor (NOT a separate context!)
   - Use a `Dictionary<string, long>` cache for node name -> ID mapping (performance optimization)
   - Use a `Dictionary<string, long>` cache for file path -> ID mapping
   - Reference: `Resources/RoslynExamples/WorkspaceLoader.cs` for the caching pattern

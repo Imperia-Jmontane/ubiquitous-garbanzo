@@ -2,6 +2,34 @@
 
 This folder contains **complete reference implementations** for integrating Roslyn-based code analysis and graph visualization. Each file is a working example that can be adapted to the project.
 
+## IMPORTANT: Existing Infrastructure to Reuse
+
+The Flow project already has mature infrastructure that **MUST be reused** instead of creating new patterns:
+
+### Database Layer (ApplicationDbContext)
+- **Location**: `MyApp/MyApp/Data/ApplicationDbContext.cs`
+- **Reuse**: Add Code Analysis entities to the existing `ApplicationDbContext` instead of creating a separate DbContext
+- **SQLite Support**: Already configured with DateTimeOffset converters for SQLite compatibility
+- **Migrations**: Use the existing migration workflow in `MyApp/MyApp/Data/Migrations/`
+
+### Background Processing
+- **Existing Pattern**: The project uses `BackgroundService` for long-running operations
+- **Job Queue**: Use `Channel<T>` for producer-consumer pattern (see `IndexingBackgroundService.cs` example)
+- **DI Registration**: Register as `IHostedService` in `Program.cs`
+
+### API Layer
+- **MediatR**: Commands/queries already integrated - use `IRequestHandler<TCommand, TResult>`
+- **FluentValidation**: Validators auto-discovered - create `XxxCommandValidator` classes
+- **Controllers**: Follow existing patterns in `MyApp/MyApp/Controllers/Api/`
+
+### Secret Management
+- **ISecretProvider**: Already exists at `MyApp/MyApp/Application/Abstractions/ISecretProvider.cs`
+- **Implementation**: `ConfigurationSecretProvider` with Data Protection encryption
+
+### Logging & Observability
+- **Serilog**: Already configured with structured logging
+- **Metrics**: Use `System.Diagnostics.Metrics.Meter` pattern (see `Program.cs`)
+
 ## Recent Updates (Peer Review Improvements)
 
 The schema and checklist have been updated based on peer review feedback to include:
@@ -45,26 +73,43 @@ Resources/
 
 Follow this order for implementation:
 
-### Phase 1: Domain & Database
+### Phase 1: Domain & Database (Integrate with Existing)
 1. **Read `SourcetrailReference/DatabaseSchema.sql`** - Understand the data model
-2. **Use `EFCoreExamples/CodeAnalysisDbContext.cs`** - Create entities and DbContext
-3. **Add migrations** - Generate database schema
+2. **Create domain entities** in `MyApp/MyApp/Domain/CodeAnalysis/` folder:
+   - `CodeNode.cs`, `CodeEdge.cs`, `SourceFile.cs`, `SourceLocation.cs`, `IndexedRepository.cs`
+3. **Extend ApplicationDbContext** - Add `DbSet<>` properties and configurations
+   - Reference `EFCoreExamples/CodeAnalysisDbContext.cs` for entity configuration patterns
+   - Add to existing `MyApp/MyApp/Data/ApplicationDbContext.cs`
+4. **Add migration** - `dotnet ef migrations add AddCodeAnalysis`
 
-### Phase 2: Roslyn Indexer
-1. **Read `RoslynExamples/WorkspaceLoader.cs`** - Load .sln/.csproj files
-2. **Use `RoslynExamples/SymbolDeclarationCollector.cs`** - First-pass symbol collection
-3. **Use `RoslynExamples/ReferenceCollector.cs`** - Second-pass reference collection
-4. **Use `UtilityExamples/FileHashUtility.cs`** - Incremental indexing support
+### Phase 2: Roslyn Indexer (New Project)
+1. **Create separate project**: `MyApp.CodeAnalysis` (class library)
+   - Isolates Roslyn dependencies from main app
+   - Reference main project for domain entities
+2. **Read `RoslynExamples/WorkspaceLoader.cs`** - Load .sln/.csproj files
+3. **Use `RoslynExamples/SymbolDeclarationCollector.cs`** - First-pass symbol collection
+4. **Use `RoslynExamples/ReferenceCollector.cs`** - Second-pass reference collection
+5. **Use `UtilityExamples/FileHashUtility.cs`** - Incremental indexing support
 
-### Phase 3: Background Processing
-1. **Use `BackgroundJobExamples/IndexingBackgroundService.cs`** - Non-blocking indexing
+### Phase 3: Background Processing (Follow Existing Patterns)
+1. **Create service** in `MyApp/MyApp/Infrastructure/CodeAnalysis/IndexingBackgroundService.cs`
+2. **Use existing pattern**: `BackgroundService` + `Channel<T>` for job queue
+3. **Register in Program.cs** as `IHostedService`
+4. Reference `BackgroundJobExamples/IndexingBackgroundService.cs` for implementation
 
-### Phase 4: API Layer
-1. **Use `ApiExamples/CodeAnalysisApiController.cs`** - All endpoints with security
+### Phase 4: API Layer (Use MediatR)
+1. **Create commands/queries** in `MyApp/MyApp/Application/CodeAnalysis/`
+   - `Commands/IndexRepository/IndexRepositoryCommand.cs`
+   - `Queries/GetGraph/GetGraphQuery.cs`
+   - Follow existing MediatR patterns
+2. **Create controller** in `MyApp/MyApp/Controllers/Api/CodeAnalysisController.cs`
+3. Reference `ApiExamples/CodeAnalysisApiController.cs` for endpoint structure
 
-### Phase 5: Frontend
-1. **Use `CytoscapeExamples/graph-renderer.js`** - Graph visualization
-2. **Use `ViewExamples/CodeAnalysisIndex.cshtml`** - Complete UI
+### Phase 5: Frontend (Add to Existing Views)
+1. **Add view** at `MyApp/MyApp/Views/CodeAnalysis/Index.cshtml`
+2. **Add controller** at `MyApp/MyApp/Controllers/CodeAnalysisController.cs`
+3. **Add JS** to `MyApp/MyApp/wwwroot/js/code-analysis.js`
+4. Reference `CytoscapeExamples/graph-renderer.js` and `ViewExamples/CodeAnalysisIndex.cshtml`
 
 ## Key Roslyn Concepts
 

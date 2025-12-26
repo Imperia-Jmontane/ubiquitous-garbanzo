@@ -1,7 +1,24 @@
 // ============================================================================
 // REFERENCE FILE: Background Service for Code Indexing
-// This is a reference implementation for the junior developer.
-// DO NOT use directly - adapt to your project structure.
+//
+// INTEGRATION INSTRUCTIONS:
+// Create this service in MyApp/MyApp/Infrastructure/CodeAnalysis/
+//
+// The Flow project already uses similar patterns:
+// - IServiceScopeFactory for creating scoped DbContext in background work
+// - CancellationToken support throughout
+// - ILogger<T> for structured logging
+//
+// REGISTRATION IN PROGRAM.CS:
+// Add after line ~180 (after other service registrations):
+//
+//     builder.Services.AddSingleton<IIndexingJobService, IndexingBackgroundService>();
+//     builder.Services.AddHostedService(sp =>
+//         (IndexingBackgroundService)sp.GetRequiredService<IIndexingJobService>());
+//
+// This dual registration allows:
+// - Dependency injection via IIndexingJobService interface
+// - Automatic background service hosting
 // ============================================================================
 
 using Microsoft.Extensions.DependencyInjection;
