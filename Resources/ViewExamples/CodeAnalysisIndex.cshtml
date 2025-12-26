@@ -1,0 +1,767 @@
+@* ============================================================================
+   REFERENCE FILE: Code Analysis Index View
+   Complete Razor view with three-column layout for graph visualization.
+   Adapt styling to match your app's theme.
+   ============================================================================ *@
+
+@{
+    ViewData["Title"] = "Code Analysis";
+}
+
+@* Include required CSS *@
+@section Styles {
+    <style>
+        /* Graph container must have explicit height */
+        #graph-container {
+            height: calc(100vh - 180px);
+            min-height: 500px;
+        }
+
+        /* Source code preview styling */
+        .source-preview pre {
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        /* Symbol tree styling */
+        .symbol-tree-item {
+            cursor: pointer;
+            transition: background-color 0.15s;
+        }
+        .symbol-tree-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        /* Status badge colors */
+        .status-queued { background-color: #6366f1; }
+        .status-running { background-color: #f59e0b; }
+        .status-completed { background-color: #10b981; }
+        .status-failed { background-color: #ef4444; }
+    </style>
+}
+
+<div class="flex h-full">
+    @* ===================================================================== *@
+    @* LEFT SIDEBAR: Symbol Search & Filters *@
+    @* ===================================================================== *@
+    <aside class="w-72 flex-shrink-0 border-r border-slate-700 bg-slate-900 overflow-y-auto">
+        <div class="p-4 space-y-4">
+            @* Repository Selector *@
+            <div>
+                <label class="block text-sm font-medium text-slate-400 mb-1">Repository</label>
+                <select id="repository-select"
+                        class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Select a repository...</option>
+                    @* Populated dynamically *@
+                </select>
+            </div>
+
+            @* Indexing Status *@
+            <div id="indexing-status" class="hidden">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-400">Status</span>
+                    <span id="status-badge" class="px-2 py-0.5 rounded text-xs font-medium text-white">
+                        Unknown
+                    </span>
+                </div>
+                <div id="progress-container" class="mt-2 hidden">
+                    <div class="w-full bg-slate-700 rounded-full h-2">
+                        <div id="progress-bar" class="bg-blue-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <span id="progress-text" class="text-xs text-slate-500 mt-1">0%</span>
+                </div>
+                <button id="start-indexing-btn"
+                        class="mt-2 w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition hidden">
+                    Start Indexing
+                </button>
+            </div>
+
+            @* Symbol Search *@
+            <div>
+                <label class="block text-sm font-medium text-slate-400 mb-1">Search Symbols</label>
+                <div class="relative">
+                    <input type="text"
+                           id="symbol-search"
+                           placeholder="Type to search..."
+                           class="w-full px-3 py-2 pl-9 bg-slate-800 border border-slate-600 rounded-md text-white text-sm focus:ring-blue-500 focus:border-blue-500"
+                           autocomplete="off">
+                    <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <div id="search-results" class="mt-2 max-h-48 overflow-y-auto hidden">
+                    @* Populated dynamically *@
+                </div>
+            </div>
+
+            @* Filter by Symbol Kind *@
+            <div>
+                <label class="block text-sm font-medium text-slate-400 mb-2">Filter by Type</label>
+                <div class="space-y-1">
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" value="class" checked class="symbol-filter mr-2 rounded bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500">
+                        <span class="w-3 h-3 rounded bg-blue-500 mr-2"></span>
+                        Classes
+                    </label>
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" value="interface" checked class="symbol-filter mr-2 rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500">
+                        <span class="w-3 h-3 rounded bg-violet-500 mr-2"></span>
+                        Interfaces
+                    </label>
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" value="struct" checked class="symbol-filter mr-2 rounded bg-slate-700 border-slate-600 text-teal-500 focus:ring-teal-500">
+                        <span class="w-3 h-3 rounded bg-teal-500 mr-2"></span>
+                        Structs
+                    </label>
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" value="enum" checked class="symbol-filter mr-2 rounded bg-slate-700 border-slate-600 text-amber-500 focus:ring-amber-500">
+                        <span class="w-3 h-3 rounded bg-amber-500 mr-2"></span>
+                        Enums
+                    </label>
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" value="method" class="symbol-filter mr-2 rounded bg-slate-700 border-slate-600 text-emerald-500 focus:ring-emerald-500">
+                        <span class="w-3 h-3 rounded bg-emerald-500 mr-2"></span>
+                        Methods
+                    </label>
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="checkbox" value="property" class="symbol-filter mr-2 rounded bg-slate-700 border-slate-600 text-pink-500 focus:ring-pink-500">
+                        <span class="w-3 h-3 rounded bg-pink-500 mr-2"></span>
+                        Properties
+                    </label>
+                </div>
+            </div>
+
+            @* Namespace Filter *@
+            <div>
+                <label class="block text-sm font-medium text-slate-400 mb-1">Namespace Filter</label>
+                <input type="text"
+                       id="namespace-filter"
+                       placeholder="e.g. MyApp.Services"
+                       class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white text-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            @* Depth Slider *@
+            <div>
+                <label class="block text-sm font-medium text-slate-400 mb-1">
+                    Graph Depth: <span id="depth-value">2</span>
+                </label>
+                <input type="range"
+                       id="depth-slider"
+                       min="1" max="5" value="2"
+                       class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+        </div>
+    </aside>
+
+    @* ===================================================================== *@
+    @* CENTER: Graph Canvas *@
+    @* ===================================================================== *@
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-950">
+        @* Toolbar *@
+        <div class="flex items-center justify-between px-4 py-2 border-b border-slate-700 bg-slate-900">
+            <div class="flex items-center space-x-2">
+                @* Layout Selector *@
+                <select id="layout-select"
+                        class="px-2 py-1 bg-slate-800 border border-slate-600 rounded text-sm text-white">
+                    <option value="dagre" selected>Hierarchical</option>
+                    <option value="cose">Force-Directed</option>
+                    <option value="breadthfirst">Tree</option>
+                    <option value="circle">Circular</option>
+                    <option value="concentric">Concentric</option>
+                </select>
+
+                @* Fit Button *@
+                <button id="fit-btn"
+                        class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                        title="Fit to View">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                    </svg>
+                </button>
+
+                @* Export Button *@
+                <button id="export-btn"
+                        class="px-2 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-sm text-white"
+                        title="Export as PNG">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </button>
+            </div>
+
+            @* Stats *@
+            <div class="flex items-center space-x-4 text-sm text-slate-400">
+                <span data-node-count>0 nodes</span>
+                <span data-edge-count>0 edges</span>
+            </div>
+        </div>
+
+        @* Graph Container *@
+        <div class="relative flex-1">
+            <div id="graph-container" class="w-full h-full"></div>
+
+            @* Loading Overlay *@
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="flex flex-col items-center">
+                    <svg class="animate-spin h-8 w-8 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-slate-400">Loading graph...</span>
+                </div>
+            </div>
+
+            @* Empty State *@
+            <div id="empty-state" class="absolute inset-0 flex items-center justify-center">
+                <div class="text-center text-slate-500">
+                    <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <p class="text-lg font-medium mb-1">No Graph Data</p>
+                    <p class="text-sm">Select a repository and index it to visualize code structure</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    @* ===================================================================== *@
+    @* RIGHT SIDEBAR: Symbol Details *@
+    @* ===================================================================== *@
+    <aside id="details-panel" class="w-80 flex-shrink-0 border-l border-slate-700 bg-slate-900 overflow-y-auto hidden">
+        <div class="p-4 space-y-4">
+            @* Symbol Info Header *@
+            <div id="symbol-header">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span id="symbol-icon" class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white bg-blue-500">C</span>
+                    <h3 id="symbol-name" class="text-lg font-semibold text-white truncate">SymbolName</h3>
+                </div>
+                <p id="symbol-qualified-name" class="text-xs text-slate-500 font-mono break-all">
+                    global::Namespace.ClassName
+                </p>
+            </div>
+
+            @* Symbol Properties *@
+            <div id="symbol-properties" class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-400">Kind</span>
+                    <span id="prop-kind" class="text-white">Class</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-400">Access</span>
+                    <span id="prop-access" class="text-white">public</span>
+                </div>
+                <div id="prop-modifiers-row" class="flex items-center justify-between text-sm hidden">
+                    <span class="text-slate-400">Modifiers</span>
+                    <span id="prop-modifiers" class="text-white">static async</span>
+                </div>
+            </div>
+
+            @* Location *@
+            <div id="symbol-location">
+                <h4 class="text-sm font-medium text-slate-400 mb-2">Location</h4>
+                <a id="location-link" href="#" class="flex items-center text-sm text-blue-400 hover:text-blue-300">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                    <span id="location-text">MyClass.cs:42</span>
+                </a>
+            </div>
+
+            @* Source Preview *@
+            <div id="source-preview-container">
+                <h4 class="text-sm font-medium text-slate-400 mb-2">Source Preview</h4>
+                <div class="source-preview bg-slate-800 rounded-md overflow-hidden">
+                    <pre><code id="source-preview" class="language-csharp text-sm"></code></pre>
+                </div>
+            </div>
+
+            @* References *@
+            <div id="references-container">
+                <h4 class="text-sm font-medium text-slate-400 mb-2">
+                    References <span id="references-count" class="text-slate-500">(0)</span>
+                </h4>
+                <div id="references-list" class="space-y-1 max-h-48 overflow-y-auto">
+                    @* Populated dynamically *@
+                </div>
+            </div>
+
+            @* Actions *@
+            <div class="flex space-x-2">
+                <button id="show-callers-btn"
+                        class="flex-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-sm text-white">
+                    Show Callers
+                </button>
+                <button id="show-callees-btn"
+                        class="flex-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-sm text-white">
+                    Show Callees
+                </button>
+            </div>
+        </div>
+    </aside>
+</div>
+
+@* Include required JavaScript libraries *@
+@section Scripts {
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <link href="https://unpkg.com/prismjs@1.29.0/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://unpkg.com/prismjs@1.29.0/prism.js"></script>
+    <script src="https://unpkg.com/prismjs@1.29.0/components/prism-csharp.js"></script>
+
+    @* Reference: Resources/CytoscapeExamples/graph-renderer.js *@
+    <script src="~/js/code-analysis/code-graph-renderer.js"></script>
+
+    <script>
+        // =====================================================================
+        // CODE ANALYSIS PAGE CONTROLLER
+        // =====================================================================
+        (function() {
+            'use strict';
+
+            let graphRenderer = null;
+            let currentRepositoryId = null;
+            let statusPollingInterval = null;
+
+            // Initialize on DOM ready
+            document.addEventListener('DOMContentLoaded', initialize);
+
+            async function initialize() {
+                // Initialize graph renderer
+                graphRenderer = new CodeGraphRenderer('graph-container');
+                await graphRenderer.initialize();
+
+                // Setup event handlers
+                setupEventHandlers();
+                setupCustomEventListeners();
+
+                // Load repositories
+                await loadRepositories();
+            }
+
+            function setupEventHandlers() {
+                // Repository selection
+                document.getElementById('repository-select').addEventListener('change', onRepositoryChange);
+
+                // Start indexing button
+                document.getElementById('start-indexing-btn').addEventListener('click', startIndexing);
+
+                // Layout selector
+                document.getElementById('layout-select').addEventListener('change', function(e) {
+                    graphRenderer.applyLayout(e.target.value);
+                });
+
+                // Fit button
+                document.getElementById('fit-btn').addEventListener('click', function() {
+                    graphRenderer.fit();
+                });
+
+                // Export button
+                document.getElementById('export-btn').addEventListener('click', exportGraph);
+
+                // Symbol search with debounce
+                let searchTimeout;
+                document.getElementById('symbol-search').addEventListener('input', function(e) {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => searchSymbols(e.target.value), 300);
+                });
+
+                // Filter checkboxes
+                document.querySelectorAll('.symbol-filter').forEach(checkbox => {
+                    checkbox.addEventListener('change', applyFilters);
+                });
+
+                // Depth slider
+                document.getElementById('depth-slider').addEventListener('input', function(e) {
+                    document.getElementById('depth-value').textContent = e.target.value;
+                });
+                document.getElementById('depth-slider').addEventListener('change', function() {
+                    if (currentRepositoryId) {
+                        loadGraph();
+                    }
+                });
+
+                // Namespace filter
+                let namespaceTimeout;
+                document.getElementById('namespace-filter').addEventListener('input', function() {
+                    clearTimeout(namespaceTimeout);
+                    namespaceTimeout = setTimeout(loadGraph, 500);
+                });
+
+                // Details panel buttons
+                document.getElementById('show-callers-btn').addEventListener('click', showCallers);
+                document.getElementById('show-callees-btn').addEventListener('click', showCallees);
+            }
+
+            function setupCustomEventListeners() {
+                // Listen for graph events
+                document.addEventListener('codeGraph:nodeSelected', function(e) {
+                    showSymbolDetails(e.detail);
+                });
+
+                document.addEventListener('codeGraph:nodeDeselected', function() {
+                    hideSymbolDetails();
+                });
+
+                document.addEventListener('codeGraph:navigateToSource', function(e) {
+                    loadSourcePreview(e.detail.filePath, e.detail.line);
+                });
+            }
+
+            async function loadRepositories() {
+                try {
+                    // This would call your existing repository API
+                    const response = await fetch('/api/repositories');
+                    const repositories = await response.json();
+
+                    const select = document.getElementById('repository-select');
+                    repositories.forEach(repo => {
+                        const option = document.createElement('option');
+                        option.value = repo.id;
+                        option.textContent = repo.name;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Failed to load repositories:', error);
+                }
+            }
+
+            async function onRepositoryChange(e) {
+                currentRepositoryId = e.target.value;
+
+                if (!currentRepositoryId) {
+                    hideGraph();
+                    return;
+                }
+
+                // Show status section
+                document.getElementById('indexing-status').classList.remove('hidden');
+
+                // Check indexing status
+                await checkIndexingStatus();
+            }
+
+            async function checkIndexingStatus() {
+                if (!currentRepositoryId) return;
+
+                try {
+                    const response = await fetch(`/api/code-analysis/status?repositoryId=${encodeURIComponent(currentRepositoryId)}`);
+
+                    if (response.status === 404) {
+                        // Not indexed yet
+                        updateStatusUI('notIndexed');
+                        return;
+                    }
+
+                    const status = await response.json();
+                    updateStatusUI(status.status, status);
+
+                    // If completed, load the graph
+                    if (status.status === 'Completed') {
+                        stopStatusPolling();
+                        await loadGraph();
+                    } else if (status.status === 'Queued' || status.status === 'Running') {
+                        // Keep polling
+                        startStatusPolling();
+                    }
+                } catch (error) {
+                    console.error('Failed to check status:', error);
+                    updateStatusUI('error');
+                }
+            }
+
+            function updateStatusUI(status, data = null) {
+                const badge = document.getElementById('status-badge');
+                const progressContainer = document.getElementById('progress-container');
+                const startBtn = document.getElementById('start-indexing-btn');
+
+                // Reset
+                badge.className = 'px-2 py-0.5 rounded text-xs font-medium text-white';
+                progressContainer.classList.add('hidden');
+                startBtn.classList.add('hidden');
+
+                switch (status) {
+                    case 'notIndexed':
+                        badge.textContent = 'Not Indexed';
+                        badge.classList.add('bg-slate-600');
+                        startBtn.classList.remove('hidden');
+                        break;
+                    case 'Queued':
+                        badge.textContent = 'Queued';
+                        badge.classList.add('status-queued');
+                        break;
+                    case 'Running':
+                        badge.textContent = 'Indexing...';
+                        badge.classList.add('status-running');
+                        if (data) {
+                            progressContainer.classList.remove('hidden');
+                            document.getElementById('progress-bar').style.width = data.progressPercent + '%';
+                            document.getElementById('progress-text').textContent = `${data.progressPercent}% - ${data.currentFile || ''}`;
+                        }
+                        break;
+                    case 'Completed':
+                        badge.textContent = 'Indexed';
+                        badge.classList.add('status-completed');
+                        break;
+                    case 'Failed':
+                        badge.textContent = 'Failed';
+                        badge.classList.add('status-failed');
+                        startBtn.classList.remove('hidden');
+                        startBtn.textContent = 'Retry Indexing';
+                        break;
+                    default:
+                        badge.textContent = 'Unknown';
+                        badge.classList.add('bg-slate-600');
+                }
+            }
+
+            function startStatusPolling() {
+                if (statusPollingInterval) return;
+                statusPollingInterval = setInterval(checkIndexingStatus, 2000);
+            }
+
+            function stopStatusPolling() {
+                if (statusPollingInterval) {
+                    clearInterval(statusPollingInterval);
+                    statusPollingInterval = null;
+                }
+            }
+
+            async function startIndexing() {
+                if (!currentRepositoryId) return;
+
+                try {
+                    const response = await fetch('/api/code-analysis/index', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ repositoryId: currentRepositoryId })
+                    });
+
+                    if (response.ok) {
+                        updateStatusUI('Queued');
+                        startStatusPolling();
+                    } else {
+                        const error = await response.json();
+                        alert('Failed to start indexing: ' + error.message);
+                    }
+                } catch (error) {
+                    console.error('Failed to start indexing:', error);
+                    alert('Failed to start indexing');
+                }
+            }
+
+            async function loadGraph() {
+                if (!currentRepositoryId) return;
+
+                showLoading();
+
+                try {
+                    const depth = document.getElementById('depth-slider').value;
+                    const namespaceFilter = document.getElementById('namespace-filter').value;
+                    const symbolKinds = getSelectedSymbolKinds().join(',');
+
+                    await graphRenderer.loadGraph(currentRepositoryId, {
+                        depth: parseInt(depth),
+                        includeMembers: symbolKinds.includes('method') || symbolKinds.includes('property'),
+                        namespaceFilter: namespaceFilter || undefined
+                    });
+
+                    hideLoading();
+                    document.getElementById('empty-state').classList.add('hidden');
+                } catch (error) {
+                    console.error('Failed to load graph:', error);
+                    hideLoading();
+                }
+            }
+
+            function getSelectedSymbolKinds() {
+                const kinds = [];
+                document.querySelectorAll('.symbol-filter:checked').forEach(cb => {
+                    kinds.push(cb.value);
+                });
+                return kinds;
+            }
+
+            function applyFilters() {
+                const kinds = getSelectedSymbolKinds();
+                graphRenderer.filterByKind(kinds.length > 0 ? kinds : null);
+            }
+
+            async function searchSymbols(query) {
+                const resultsContainer = document.getElementById('search-results');
+
+                if (!query || query.length < 2) {
+                    resultsContainer.classList.add('hidden');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/code-analysis/search?repositoryId=${encodeURIComponent(currentRepositoryId)}&query=${encodeURIComponent(query)}&limit=10`);
+                    const results = await response.json();
+
+                    if (results.length === 0) {
+                        resultsContainer.innerHTML = '<p class="text-sm text-slate-500 p-2">No results found</p>';
+                    } else {
+                        resultsContainer.innerHTML = results.map(r => `
+                            <div class="symbol-tree-item p-2 rounded cursor-pointer" data-node-id="${r.id}">
+                                <span class="text-sm text-white">${escapeHtml(r.displayName)}</span>
+                                <span class="text-xs text-slate-500 ml-1">${r.kind}</span>
+                            </div>
+                        `).join('');
+
+                        // Click handler for results
+                        resultsContainer.querySelectorAll('.symbol-tree-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const nodeId = this.dataset.nodeId;
+                                graphRenderer.focusOnNode(nodeId);
+                                resultsContainer.classList.add('hidden');
+                            });
+                        });
+                    }
+
+                    resultsContainer.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Search failed:', error);
+                }
+            }
+
+            function showSymbolDetails(nodeData) {
+                const panel = document.getElementById('details-panel');
+                panel.classList.remove('hidden');
+
+                // Update header
+                document.getElementById('symbol-name').textContent = nodeData.displayName || 'Unknown';
+                document.getElementById('symbol-qualified-name').textContent = nodeData.fullyQualifiedName || '';
+
+                // Update icon based on kind
+                const icon = document.getElementById('symbol-icon');
+                const kindMap = {
+                    'class': { letter: 'C', color: 'bg-blue-500' },
+                    'interface': { letter: 'I', color: 'bg-violet-500' },
+                    'struct': { letter: 'S', color: 'bg-teal-500' },
+                    'enum': { letter: 'E', color: 'bg-amber-500' },
+                    'method': { letter: 'M', color: 'bg-emerald-500' },
+                    'property': { letter: 'P', color: 'bg-pink-500' },
+                    'field': { letter: 'F', color: 'bg-orange-500' }
+                };
+                const kindInfo = kindMap[nodeData.kind] || { letter: '?', color: 'bg-slate-500' };
+                icon.textContent = kindInfo.letter;
+                icon.className = `w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white ${kindInfo.color}`;
+
+                // Update properties
+                document.getElementById('prop-kind').textContent = nodeData.kind || 'Unknown';
+
+                // Update location
+                if (nodeData.filePath && nodeData.line) {
+                    document.getElementById('location-text').textContent = `${nodeData.filePath}:${nodeData.line}`;
+                    loadSourcePreview(nodeData.filePath, nodeData.line);
+                }
+
+                // Load references
+                loadReferences(nodeData.id);
+            }
+
+            function hideSymbolDetails() {
+                document.getElementById('details-panel').classList.add('hidden');
+            }
+
+            async function loadSourcePreview(filePath, line) {
+                try {
+                    const startLine = Math.max(1, line - 5);
+                    const endLine = line + 10;
+
+                    const response = await fetch(`/api/code-analysis/source?repositoryId=${encodeURIComponent(currentRepositoryId)}&filePath=${encodeURIComponent(filePath)}&startLine=${startLine}&endLine=${endLine}`);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const codeElement = document.getElementById('source-preview');
+                        codeElement.textContent = data.content;
+                        Prism.highlightElement(codeElement);
+                    }
+                } catch (error) {
+                    console.error('Failed to load source preview:', error);
+                }
+            }
+
+            async function loadReferences(symbolId) {
+                try {
+                    const response = await fetch(`/api/code-analysis/symbols/${symbolId}/references`);
+                    const references = await response.json();
+
+                    document.getElementById('references-count').textContent = `(${references.length})`;
+
+                    const container = document.getElementById('references-list');
+                    if (references.length === 0) {
+                        container.innerHTML = '<p class="text-sm text-slate-500">No references found</p>';
+                    } else {
+                        container.innerHTML = references.slice(0, 20).map(ref => `
+                            <div class="text-sm text-slate-300 p-1 rounded hover:bg-slate-800 cursor-pointer truncate"
+                                 data-file="${escapeHtml(ref.filePath)}" data-line="${ref.line}">
+                                ${escapeHtml(ref.filePath)}:${ref.line}
+                            </div>
+                        `).join('');
+                    }
+                } catch (error) {
+                    console.error('Failed to load references:', error);
+                }
+            }
+
+            async function showCallers() {
+                // Implementation would expand graph to show callers
+                console.log('Show callers');
+            }
+
+            async function showCallees() {
+                // Implementation would expand graph to show callees
+                console.log('Show callees');
+            }
+
+            async function exportGraph() {
+                try {
+                    const blob = await graphRenderer.exportAsImage('png');
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `code-graph-${currentRepositoryId}.png`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (error) {
+                    console.error('Export failed:', error);
+                }
+            }
+
+            function showLoading() {
+                document.getElementById('loading-overlay').classList.remove('hidden');
+            }
+
+            function hideLoading() {
+                document.getElementById('loading-overlay').classList.add('hidden');
+            }
+
+            function hideGraph() {
+                document.getElementById('empty-state').classList.remove('hidden');
+                document.getElementById('indexing-status').classList.add('hidden');
+                stopStatusPolling();
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        })();
+    </script>
+}
