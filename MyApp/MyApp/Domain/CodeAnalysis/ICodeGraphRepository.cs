@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MyApp.Application.CodeAnalysis.DTOs;
+using MyApp.CodeAnalysis.Abstractions;
 
 namespace MyApp.Domain.CodeAnalysis
 {
-    public interface ICodeGraphRepository
+    public interface ICodeGraphRepository : ISymbolCollectorRepository
     {
         Task BeginTransactionAsync(CancellationToken ct);
         Task CommitTransactionAsync(CancellationToken ct);
@@ -20,15 +21,10 @@ namespace MyApp.Domain.CodeAnalysis
         Task<long?> GetFileIdAsync(long snapshotId, string relativePath, CancellationToken ct);
         Task<bool> IsFileChangedAsync(long snapshotId, string relativePath, string fileHash, CancellationToken ct);
 
-        long RecordNode(long snapshotId, string serializedName, string? displayName, CSharpSymbolKind kind, long? parentNodeId, int? accessibility, bool isStatic, bool isAbstract, bool isVirtual, bool isOverride, bool isExtensionMethod, bool isAsync);
-        long GetOrCreateNodeId(long snapshotId, string serializedName);
         long? TryGetNodeId(long snapshotId, string serializedName);
 
         long RecordExternalNode(long snapshotId, string serializedName, string? displayName, CSharpSymbolKind kind);
 
-        long RecordEdge(long snapshotId, long sourceNodeId, long targetNodeId, CSharpReferenceKind kind);
-
-        void RecordSourceLocation(long nodeId, long fileId, int startLine, int startColumn, int endLine, int endColumn, int startOffset, int endOffset, LocationType locationType);
         void RecordOccurrence(long elementId, long fileId, int startLine, int startColumn, int endLine, int endColumn, int startOffset, int endOffset);
 
         Task<GraphData> GetGraphDataAsync(GraphQueryOptions options, CancellationToken ct);

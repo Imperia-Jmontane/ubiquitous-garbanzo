@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using MyApp.Domain.CodeAnalysis;
+using MyApp.CodeAnalysis.Abstractions;
 
 namespace MyApp.Application.CodeAnalysis.DTOs
 {

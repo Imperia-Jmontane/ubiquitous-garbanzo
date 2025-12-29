@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MyApp.CodeAnalysis.Abstractions;
 
 namespace MyApp.Domain.CodeAnalysis
 {

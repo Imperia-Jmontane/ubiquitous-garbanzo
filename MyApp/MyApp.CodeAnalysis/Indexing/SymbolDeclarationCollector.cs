@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using MyApp.Domain.CodeAnalysis;
+using MyApp.CodeAnalysis.Abstractions;
 
 namespace MyApp.CodeAnalysis.Indexing
 {
@@ -13,10 +13,10 @@ namespace MyApp.CodeAnalysis.Indexing
         private readonly SemanticModel semanticModel;
         private readonly long fileId;
         private readonly long snapshotId;
-        private readonly ICodeGraphRepository repository;
+        private readonly ISymbolCollectorRepository repository;
         private readonly Stack<long> containerStack;
 
-        public SymbolDeclarationCollector(SemanticModel semanticModel, long fileId, long snapshotId, ICodeGraphRepository repository)
+        public SymbolDeclarationCollector(SemanticModel semanticModel, long fileId, long snapshotId, ISymbolCollectorRepository repository)
         {
             this.semanticModel = semanticModel;
             this.fileId = fileId;
@@ -200,6 +200,7 @@ namespace MyApp.CodeAnalysis.Indexing
             {
                 long nodeId = RecordSymbol(symbol, node, CSharpSymbolKind.Property, GetAccessibility(symbol), symbol.IsStatic, symbol.IsAbstract, symbol.IsVirtual, symbol.IsOverride, false, false);
                 RecordContainment(nodeId);
+                RecordTypeUsage(symbol.Type, nodeId);
             }
 
             base.VisitPropertyDeclaration(node);
@@ -215,6 +216,7 @@ namespace MyApp.CodeAnalysis.Indexing
                 {
                     long nodeId = RecordSymbol(symbol, variable, CSharpSymbolKind.Field, GetAccessibility(symbol), symbol.IsStatic, symbol.IsAbstract, symbol.IsVirtual, symbol.IsOverride, false, false);
                     RecordContainment(nodeId);
+                    RecordTypeUsage(symbol.Type, nodeId);
                 }
             }
 
@@ -340,6 +342,16 @@ namespace MyApp.CodeAnalysis.Indexing
                 string interfaceName = GetFullyQualifiedName(interfaceMethod);
                 long targetId = repository.GetOrCreateNodeId(snapshotId, interfaceName);
                 repository.RecordEdge(snapshotId, nodeId, targetId, CSharpReferenceKind.InterfaceImplementation);
+            }
+        }
+
+        private void RecordTypeUsage(ITypeSymbol typeSymbol, long sourceNodeId)
+        {
+            if (typeSymbol is INamedTypeSymbol namedType)
+            {
+                string typeName = GetFullyQualifiedName(namedType);
+                long typeId = repository.GetOrCreateNodeId(snapshotId, typeName);
+                repository.RecordEdge(snapshotId, sourceNodeId, typeId, CSharpReferenceKind.TypeUsage);
             }
         }
 

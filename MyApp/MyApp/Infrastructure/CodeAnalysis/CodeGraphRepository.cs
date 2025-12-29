@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using MyApp.Application.CodeAnalysis.DTOs;
+using MyApp.CodeAnalysis.Abstractions;
 using MyApp.Data;
 using MyApp.Domain.CodeAnalysis;
 

@@ -34,6 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\MyApp.CodeAnalysis.Abstractions\MyApp.CodeAnalysis.Abstractions.csproj" />
     <ProjectReference Include="..\MyApp.CodeAnalysis\MyApp.CodeAnalysis.csproj" />
   </ItemGroup>
 
