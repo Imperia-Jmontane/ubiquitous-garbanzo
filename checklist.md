@@ -645,7 +645,7 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 ### 3.3 Create Symbol Declaration Collector
 
-- [ ] Create `SymbolDeclarationCollector.cs`:
+- [x] Create `SymbolDeclarationCollector.cs`:
   - Reference: `Resources/RoslynExamples/SymbolDeclarationCollector.cs`
   - Inherit from `CSharpSyntaxWalker`
   - Constructor parameters: `SemanticModel`, `long fileId`, `long snapshotId`, `ICodeGraphRepository`
