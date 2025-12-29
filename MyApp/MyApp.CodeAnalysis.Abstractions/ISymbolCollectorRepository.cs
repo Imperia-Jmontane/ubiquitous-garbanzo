@@ -30,6 +30,11 @@ namespace MyApp.CodeAnalysis.Abstractions
         long GetOrCreateNodeId(long snapshotId, string serializedName);
 
         /// <summary>
+        /// Records an external symbol node (for metadata-only references).
+        /// </summary>
+        long RecordExternalNode(long snapshotId, string serializedName, string? displayName, CSharpSymbolKind kind);
+
+        /// <summary>
         /// Records an edge (relationship) between two nodes.
         /// </summary>
         long RecordEdge(long snapshotId, long sourceNodeId, long targetNodeId, CSharpReferenceKind kind);
@@ -49,3 +54,4 @@ namespace MyApp.CodeAnalysis.Abstractions
             LocationType locationType);
     }
 }
+

@@ -190,6 +190,8 @@ namespace MyApp
             builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();
             builder.Services.AddScoped<IFlowBranchPreferenceRepository, FlowBranchPreferenceRepository>();
             builder.Services.AddScoped<ICodeGraphRepository, CodeGraphRepository>();
+            builder.Services.AddScoped<ICodeIndexer, RoslynCodeIndexer>();
+            builder.Services.AddSingleton<IIndexingJobService, IndexingJobService>();
 
             WebApplication app = builder.Build();
 
@@ -255,3 +257,5 @@ namespace MyApp
         }
     }
 }
+
+

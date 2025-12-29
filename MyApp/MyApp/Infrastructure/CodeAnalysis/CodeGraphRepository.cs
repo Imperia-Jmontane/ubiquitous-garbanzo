@@ -659,7 +659,7 @@ namespace MyApp.Infrastructure.CodeAnalysis
                 .Where(node => node.RepositorySnapshotId == snapshot.Id && node.NormalizedName != null && node.NormalizedName.Contains(normalizedQuery));
 
             nodesQuery = nodesQuery
-                .OrderBy(node => node.NormalizedName == normalizedQuery ? 0 : node.NormalizedName.StartsWith(normalizedQuery) ? 1 : 2)
+                .OrderBy(node => node.NormalizedName != null && node.NormalizedName == normalizedQuery ? 0 : node.NormalizedName != null && node.NormalizedName.StartsWith(normalizedQuery) ? 1 : 2)
                 .ThenBy(node => node.DisplayName);
 
             int resolvedLimit = limit <= 0 ? 20 : limit;

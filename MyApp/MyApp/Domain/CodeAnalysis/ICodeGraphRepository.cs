@@ -23,8 +23,6 @@ namespace MyApp.Domain.CodeAnalysis
 
         long? TryGetNodeId(long snapshotId, string serializedName);
 
-        long RecordExternalNode(long snapshotId, string serializedName, string? displayName, CSharpSymbolKind kind);
-
         void RecordOccurrence(long elementId, long fileId, int startLine, int startColumn, int endLine, int endColumn, int startOffset, int endOffset);
 
         Task<GraphData> GetGraphDataAsync(GraphQueryOptions options, CancellationToken ct);
@@ -32,3 +30,4 @@ namespace MyApp.Domain.CodeAnalysis
         Task<List<SymbolSearchResult>> SearchSymbolsAsync(string repositoryId, string query, int limit, CancellationToken ct);
     }
 }
+
