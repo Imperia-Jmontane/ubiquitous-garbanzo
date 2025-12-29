@@ -865,7 +865,7 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
 
 ### 5.1 Add Cytoscape.js Libraries
 
-- [ ] Download or reference Cytoscape.js libraries:
+- [x] Download or reference Cytoscape.js libraries:
   ```html
   <!-- Add to _Layout.cshtml or specific view -->
   <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
@@ -880,7 +880,7 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
   # Download files from unpkg and place in cytoscape folder
   ```
 
-- [ ] Add syntax highlighting library (for source preview):
+- [x] Add syntax highlighting library (for source preview):
   ```html
   <link href="https://unpkg.com/prismjs@1.29.0/themes/prism-tomorrow.css" rel="stylesheet" />
   <script src="https://unpkg.com/prismjs@1.29.0/prism.js"></script>
@@ -889,9 +889,9 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
 
 ### 5.2 Create Graph Renderer JavaScript
 
-- [ ] Create folder: `MyApp/wwwroot/js/code-analysis/`
+- [x] Create folder: `MyApp/wwwroot/js/code-analysis/`
 
-- [ ] Create `code-graph-renderer.js`:
+- [x] Create `code-graph-renderer.js`:
   - Reference: `Resources/CytoscapeExamples/graph-renderer.js`
   - Adapt styling to match the Flow app's dark theme
   - **Follow site.js patterns:**
@@ -921,14 +921,14 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
 
 ### 5.3 Create Controller and View
 
-- [ ] Create `CodeAnalysisController.cs` (MVC controller, NOT API):
+- [x] Create `CodeAnalysisController.cs` (MVC controller, NOT API):
   - Location: `MyApp/Controllers/CodeAnalysisController.cs`
   - Action: `Index(string? repositoryId)` - returns the main view
   - **Note:** Separate from Flowcharts to avoid coupling
 
-- [ ] Create view folder: `MyApp/Views/CodeAnalysis/`
+- [x] Create view folder: `MyApp/Views/CodeAnalysis/`
 
-- [ ] Create `Index.cshtml`:
+- [x] Create `Index.cshtml`:
   - Layout: Three-column layout (symbol tree | graph canvas | details panel)
   - Include:
     - Left sidebar: Symbol search input, filter checkboxes, symbol tree (collapsed by default)
@@ -980,7 +980,7 @@ In the view's `@section Scripts`:
 
 ### 5.6 Add Navigation Link
 
-- [ ] Add "Code Analysis" link to the sidebar navigation in `_Layout.cshtml`
+- [x] Add "Code Analysis" link to the sidebar navigation in `_Layout.cshtml`
 - [ ] Add appropriate icon (use existing icon style, e.g., graph/nodes icon)
 - [ ] Position appropriately in the navigation hierarchy
 

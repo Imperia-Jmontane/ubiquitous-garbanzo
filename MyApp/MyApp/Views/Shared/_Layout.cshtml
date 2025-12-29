@@ -19,12 +19,15 @@
         string mobileNavActiveClass = "flex items-center gap-2 rounded-md bg-indigo-500/20 px-3 py-2 text-sm font-semibold text-indigo-200 ring-1 ring-inset ring-indigo-500/40";
         bool isHomeActive = string.Equals(currentController, "Home", System.StringComparison.OrdinalIgnoreCase) && string.Equals(currentAction, "Index", System.StringComparison.OrdinalIgnoreCase);
         bool isFlowchartsActive = string.Equals(currentController, "Flowcharts", System.StringComparison.OrdinalIgnoreCase);
+        bool isCodeAnalysisActive = string.Equals(currentController, "CodeAnalysis", System.StringComparison.OrdinalIgnoreCase);
         bool isAboutActive = string.Equals(currentController, "About", System.StringComparison.OrdinalIgnoreCase);
         string homeDesktopClass = isHomeActive ? desktopNavActiveClass : desktopNavBaseClass;
         string flowchartsDesktopClass = isFlowchartsActive ? desktopNavActiveClass : desktopNavBaseClass;
+        string codeAnalysisDesktopClass = isCodeAnalysisActive ? desktopNavActiveClass : desktopNavBaseClass;
         string aboutDesktopClass = isAboutActive ? desktopNavActiveClass : desktopNavBaseClass;
         string homeMobileClass = isHomeActive ? mobileNavActiveClass : mobileNavBaseClass;
         string flowchartsMobileClass = isFlowchartsActive ? mobileNavActiveClass : mobileNavBaseClass;
+        string codeAnalysisMobileClass = isCodeAnalysisActive ? mobileNavActiveClass : mobileNavBaseClass;
         string aboutMobileClass = isAboutActive ? mobileNavActiveClass : mobileNavBaseClass;
     }
     <div class="flex min-h-screen w-full bg-gray-950 text-gray-100" data-layout-root>
@@ -102,6 +105,7 @@
                     <nav class="hidden md:flex items-center gap-1 lg:gap-2" aria-label="Navegación principal">
                         <a asp-area="" asp-controller="Home" asp-action="Index" class="@homeDesktopClass">Home</a>
                         <a asp-area="" asp-controller="Flowcharts" asp-action="Index" class="@flowchartsDesktopClass">Flowcharts</a>
+                        <a asp-area="" asp-controller="CodeAnalysis" asp-action="Index" class="@codeAnalysisDesktopClass">Code Analysis</a>
                         <a asp-area="" asp-controller="About" asp-action="Index" class="@aboutDesktopClass">About</a>
                     </nav>
                     <div class="flex flex-1 items-center justify-end gap-3 sm:gap-4">
@@ -149,6 +153,7 @@
                 <nav aria-label="Navegación principal móvil" class="space-y-1 py-3">
                     <a asp-area="" asp-controller="Home" asp-action="Index" class="@homeMobileClass">Home</a>
                     <a asp-area="" asp-controller="Flowcharts" asp-action="Index" class="@flowchartsMobileClass">Flowcharts</a>
+                    <a asp-area="" asp-controller="CodeAnalysis" asp-action="Index" class="@codeAnalysisMobileClass">Code Analysis</a>
                     <a asp-area="" asp-controller="About" asp-action="Index" class="@aboutMobileClass">About</a>
                 </nav>
                 <div class="border-t border-white/10 pt-4">

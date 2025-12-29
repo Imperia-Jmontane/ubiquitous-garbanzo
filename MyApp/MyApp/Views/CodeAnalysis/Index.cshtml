@@ -1,0 +1,112 @@
+@{
+    ViewData["Title"] = "Code Analysis";
+    string repositoryId = ViewData["RepositoryId"]?.ToString() ?? string.Empty;
+}
+
+<div class="space-y-6" data-code-analysis-root data-repository-id="@repositoryId">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-white">Code Analysis</h1>
+            <p class="text-sm text-gray-400">Explore symbols, relationships, and navigation insights for your repositories.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-300" data-indexing-status>
+                <span class="inline-flex size-2 rounded-full bg-emerald-400"></span>
+                <span>Ready to index</span>
+            </div>
+            <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-950/40 transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400" data-start-indexing>
+                <span>Start indexing</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+        <aside class="space-y-4 rounded-2xl border border-white/10 bg-gray-900/70 p-4 shadow-inner shadow-black/20" data-symbol-panel>
+            <div class="space-y-2">
+                <label for="symbol-search" class="text-xs font-semibold uppercase tracking-wide text-gray-400">Symbol search</label>
+                <input id="symbol-search" type="search" placeholder="Search symbols" class="w-full rounded-lg border border-white/10 bg-gray-950/60 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" data-symbol-search />
+            </div>
+            <div class="space-y-2" data-filter-panel>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Filters</p>
+                <div class="space-y-2 text-sm text-gray-300">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Class" />
+                        <span>Classes</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Interface" />
+                        <span>Interfaces</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Method" />
+                        <span>Methods</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Property" />
+                        <span>Properties</span>
+                    </label>
+                </div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-gray-950/40 p-3 text-sm text-gray-400" data-symbol-tree>
+                <p class="text-xs uppercase tracking-wide text-gray-500">Symbol tree</p>
+                <p class="mt-2">Select a repository to load symbols.</p>
+            </div>
+        </aside>
+
+        <section class="space-y-4">
+            <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-gray-900/70 px-4 py-3 shadow-inner shadow-black/20" data-graph-toolbar>
+                <div class="flex items-center gap-2 text-sm text-gray-300">
+                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Layout</span>
+                    <select class="rounded-lg border border-white/10 bg-gray-950/60 px-3 py-1.5 text-sm text-gray-200" data-layout-selector>
+                        <option value="dagre">Dagre</option>
+                        <option value="cose">Cose</option>
+                        <option value="breadthfirst">Breadth-first</option>
+                        <option value="circle">Circle</option>
+                    </select>
+                </div>
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-200 hover:bg-white/10" data-fit-graph>
+                    Fit to view
+                </button>
+                <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-200 hover:bg-white/10" data-export-graph>
+                    Export
+                </button>
+            </div>
+            <div class="relative min-h-[480px] rounded-2xl border border-white/10 bg-gray-950/60" data-graph-container>
+                <div class="absolute inset-0 flex items-center justify-center text-sm text-gray-400" data-graph-placeholder>
+                    Start indexing to render the graph.
+                </div>
+            </div>
+        </section>
+
+        <aside class="space-y-4 rounded-2xl border border-white/10 bg-gray-900/70 p-4 shadow-inner shadow-black/20" data-details-panel>
+            <div class="space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Symbol details</p>
+                <div class="rounded-lg border border-white/10 bg-gray-950/60 p-3 text-sm text-gray-300" data-symbol-details>
+                    Select a node to view details.
+                </div>
+            </div>
+            <div class="space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Source preview</p>
+                <div class="rounded-lg border border-white/10 bg-gray-950/60 p-3 text-xs text-gray-400" data-source-preview>
+                    Source preview will appear here.
+                </div>
+            </div>
+            <div class="space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">References</p>
+                <div class="rounded-lg border border-white/10 bg-gray-950/60 p-3 text-xs text-gray-400" data-references-list>
+                    Reference list will appear here.
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <link href="https://unpkg.com/prismjs@1.29.0/themes/prism-tomorrow.css" rel="stylesheet" />
+    <script src="https://unpkg.com/prismjs@1.29.0/prism.js"></script>
+    <script src="https://unpkg.com/prismjs@1.29.0/components/prism-csharp.js"></script>
+    <script src="~/js/code-analysis/code-graph-renderer.js" asp-append-version="true"></script>
+}
