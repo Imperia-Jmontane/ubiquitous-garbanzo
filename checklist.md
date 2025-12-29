@@ -673,7 +673,7 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 ### 3.4 Create Reference Collector
 
-- [ ] Create `ReferenceCollector.cs`:
+- [x] Create `ReferenceCollector.cs`:
   - Reference: `Resources/RoslynExamples/ReferenceCollector.cs`
   - Inherit from `CSharpSyntaxWalker`
   - Track current context (which method we're inside) using a `Stack<long>`
@@ -696,7 +696,7 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 ### 3.5 Create Main Indexer Service
 
-- [ ] Create `RoslynCodeIndexer.cs`:
+- [x] Create `RoslynCodeIndexer.cs`:
   - Implement `ICodeIndexer`
   - Inject `ICodeGraphRepository`, `ILogger<RoslynCodeIndexer>`, `IOptions<CodeAnalysisOptions>`
   - Implement `IndexSolutionAsync`:
@@ -721,7 +721,7 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 ### 3.6 Create Background Job Service
 
-- [ ] Create `IndexingBackgroundService.cs` in `MyApp/MyApp/Infrastructure/CodeAnalysis/`:
+- [x] Create `IndexingBackgroundService.cs` in `MyApp/MyApp/Infrastructure/CodeAnalysis/`:
   - Implement `IIndexingJobService`
   - Use a `ConcurrentDictionary<string, IndexingJobState>` for tracking job state
   - Inject `IServiceScopeFactory` to create scoped services for background work
@@ -745,7 +745,7 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 ### 3.7 Register Indexer Services
 
-- [ ] In `Program.cs`, add:
+- [x] In `Program.cs`, add:
   ```csharp
   builder.Services.AddScoped<ICodeIndexer, RoslynCodeIndexer>();
   builder.Services.AddSingleton<IIndexingJobService, IndexingJobService>();
@@ -1207,3 +1207,4 @@ When complete, verify:
 - [ ] Feature works end-to-end
 - [ ] Security tests pass (path traversal, repositoryId validation)
 - [ ] Performance benchmarks documented
+
