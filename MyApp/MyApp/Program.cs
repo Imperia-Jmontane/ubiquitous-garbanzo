@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.IO;
+using System.Linq;
 using System.Net.Http.Headers;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Build.Locator;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using FluentValidation.AspNetCore;
@@ -16,9 +18,11 @@ using MyApp.Application.GitHubOAuth.Configuration;
 using MyApp.Application.Configuration;
 using MyApp.Infrastructure.Git;
 using MyApp.Infrastructure.GitHub;
+using MyApp.Infrastructure.CodeAnalysis;
 using MyApp.Infrastructure.Persistence;
 using MyApp.Infrastructure.Secrets;
 using MyApp.Infrastructure.Time;
+using MyApp.Domain.CodeAnalysis;
 using MyApp.Domain.Scopes;
 using MyApp.Middleware;
 using Serilog;
@@ -31,6 +35,22 @@ namespace MyApp
     {
         public static void Main(string[] args)
         {
+            if (!MSBuildLocator.IsRegistered)
+            {
+                VisualStudioInstance[] instances = MSBuildLocator.QueryVisualStudioInstances().ToArray();
+
+                if (instances.Length > 0)
+                {
+                    VisualStudioInstance latestInstance = instances.OrderByDescending(instance => instance.Version).First();
+                    MSBuildLocator.RegisterInstance(latestInstance);
+                    Console.WriteLine($"Using MSBuild from: {latestInstance.MSBuildPath}");
+                }
+                else
+                {
+                    Console.WriteLine("WARNING: No MSBuild instance found. Code analysis may not work.");
+                }
+            }
+
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -146,6 +166,7 @@ namespace MyApp
             builder.Services.AddSingleton<IGitHubOAuthSettingsProvider, GitHubOAuthSettingsProvider>();
             builder.Services.Configure<GitHubOAuthOptions>(builder.Configuration.GetSection("GitHubOAuth"));
             builder.Services.Configure<BootstrapOptions>(builder.Configuration.GetSection("Bootstrap"));
+            builder.Services.Configure<CodeAnalysisOptions>(builder.Configuration.GetSection("CodeAnalysis"));
             builder.Services.AddSingleton<ILocalRepositoryService, LocalRepositoryService>();
             builder.Services.AddSingleton<IRepositoryCloneCoordinator, RepositoryCloneCoordinator>();
             builder.Services.AddHttpClient<IGitHubOAuthClient, GitHubOAuthClient>();
@@ -168,6 +189,7 @@ namespace MyApp
             builder.Services.AddScoped<IGitHubOAuthStateRepository, GitHubOAuthStateRepository>();
             builder.Services.AddScoped<IAuditTrailRepository, AuditTrailRepository>();
             builder.Services.AddScoped<IFlowBranchPreferenceRepository, FlowBranchPreferenceRepository>();
+            builder.Services.AddScoped<ICodeGraphRepository, CodeGraphRepository>();
 
             WebApplication app = builder.Build();
 

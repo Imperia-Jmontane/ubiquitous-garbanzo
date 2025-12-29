@@ -573,7 +573,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 2.5 Register Services in DI
 
-- [ ] In `Program.cs`, add configuration binding:
+- [x] In `Program.cs`, add configuration binding:
   ```csharp
   // Bind CodeAnalysis options
   builder.Services.Configure<CodeAnalysisOptions>(
@@ -596,7 +596,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   });
   ```
 
-- [ ] Register repository:
+- [x] Register repository:
   ```csharp
   builder.Services.AddScoped<ICodeGraphRepository, CodeGraphRepository>();
   ```
@@ -618,7 +618,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 3.1 Setup MSBuild Locator
 
-- [ ] In `Program.cs`, add at the VERY BEGINNING of `Main` method (before any other code):
+- [x] In `Program.cs`, add at the VERY BEGINNING of `Main` method (before any other code):
   ```csharp
   // Initialize MSBuild - MUST be first!
   if (!Microsoft.Build.Locator.MSBuildLocator.IsRegistered)
@@ -641,13 +641,13 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   }
   ```
 
-- [ ] **IMPORTANT:** This MUST be before `WebApplication.CreateBuilder(args)` or any other code
+- [x] **IMPORTANT:** This MUST be before `WebApplication.CreateBuilder(args)` or any other code
 
 ### 3.2 Create Workspace Loader
 
 Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
-- [ ] Create `WorkspaceLoader.cs`:
+- [x] Create `WorkspaceLoader.cs`:
   - Reference: `Resources/RoslynExamples/WorkspaceLoader.cs`
   - Methods:
     - `Task<Solution> LoadSolutionAsync(string solutionPath, CancellationToken ct)`
