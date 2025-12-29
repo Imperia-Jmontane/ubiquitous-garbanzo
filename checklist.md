@@ -488,13 +488,13 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 2.3 Create Migration
 
-- [ ] Generate migration for Code Analysis tables:
+- [x] Generate migration for Code Analysis tables:
   ```bash
   cd MyApp/MyApp
   dotnet ef migrations add AddCodeAnalysis
   ```
 
-- [ ] Verify migration was created in `Data/Migrations/`
+- [x] Verify migration was created in `Data/Migrations/`
 
 - [ ] Test migration applies cleanly:
   ```bash
@@ -555,13 +555,13 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   dotnet add MyApp/MyApp.csproj package Microsoft.EntityFrameworkCore.Design --version 9.0.0
   ```
 
-- [ ] Create migration (uses existing ApplicationDbContext):
+- [x] Create migration (uses existing ApplicationDbContext):
   ```bash
   cd MyApp/MyApp
   dotnet ef migrations add AddCodeAnalysis
   ```
 
-- [ ] Review generated migration in `Data/Migrations/` and verify it matches the schema
+- [x] Review generated migration in `Data/Migrations/` and verify it matches the schema
   - Check all indices are created
   - Check foreign keys are correct
   - Check nullable columns are correct
@@ -573,7 +573,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 2.5 Register Services in DI
 
-- [ ] In `Program.cs`, add configuration binding:
+- [x] In `Program.cs`, add configuration binding:
   ```csharp
   // Bind CodeAnalysis options
   builder.Services.Configure<CodeAnalysisOptions>(
@@ -596,7 +596,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   });
   ```
 
-- [ ] Register repository:
+- [x] Register repository:
   ```csharp
   builder.Services.AddScoped<ICodeGraphRepository, CodeGraphRepository>();
   ```
@@ -618,7 +618,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 3.1 Setup MSBuild Locator
 
-- [ ] In `Program.cs`, add at the VERY BEGINNING of `Main` method (before any other code):
+- [x] In `Program.cs`, add at the VERY BEGINNING of `Main` method (before any other code):
   ```csharp
   // Initialize MSBuild - MUST be first!
   if (!Microsoft.Build.Locator.MSBuildLocator.IsRegistered)
@@ -641,13 +641,13 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   }
   ```
 
-- [ ] **IMPORTANT:** This MUST be before `WebApplication.CreateBuilder(args)` or any other code
+- [x] **IMPORTANT:** This MUST be before `WebApplication.CreateBuilder(args)` or any other code
 
 ### 3.2 Create Workspace Loader
 
 Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
-- [ ] Create `WorkspaceLoader.cs`:
+- [x] Create `WorkspaceLoader.cs`:
   - Reference: `Resources/RoslynExamples/WorkspaceLoader.cs`
   - Methods:
     - `Task<Solution> LoadSolutionAsync(string solutionPath, CancellationToken ct)`
