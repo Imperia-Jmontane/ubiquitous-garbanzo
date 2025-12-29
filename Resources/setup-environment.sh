@@ -28,6 +28,10 @@ chmod +x /tmp/dotnet-install.sh
 
 DOTNET_ROOT="$HOME/.dotnet"
 
+echo "=== Installing dotnet-ef tool ==="
+# Use specific version to avoid package metadata issues
+"$DOTNET_ROOT/dotnet" tool install --global dotnet-ef --version 9.0.0
+
 echo "=== Creating global symlinks for dotnet CLI ==="
 # Create symlinks in /usr/local/bin so dotnet is available system-wide
 sudo ln -sf "$DOTNET_ROOT/dotnet" /usr/local/bin/dotnet
@@ -81,5 +85,10 @@ echo "=== Verifying symlink ==="
 ls -la /usr/local/bin/dotnet
 
 echo ""
+echo "=== Verifying dotnet-ef ==="
+dotnet ef --version
+
+echo ""
 echo "=== Setup complete ==="
 echo ".NET SDK is available system-wide via /usr/local/bin/dotnet"
+echo "dotnet-ef tool is available globally"
