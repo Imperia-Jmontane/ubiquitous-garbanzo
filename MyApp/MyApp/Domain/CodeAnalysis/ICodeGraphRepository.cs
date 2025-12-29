@@ -28,6 +28,10 @@ namespace MyApp.Domain.CodeAnalysis
         Task<GraphData> GetGraphDataAsync(GraphQueryOptions options, CancellationToken ct);
         Task<List<ReferenceLocation>> GetSymbolReferencesAsync(long symbolId, CancellationToken ct);
         Task<List<SymbolSearchResult>> SearchSymbolsAsync(string repositoryId, string query, int limit, CancellationToken ct);
+        Task<bool> SymbolExistsAsync(long symbolId, CancellationToken ct);
+        Task<List<SymbolSearchResult>> GetCallersAsync(long symbolId, CancellationToken ct);
+        Task<List<SymbolSearchResult>> GetCalleesAsync(long symbolId, CancellationToken ct);
+        Task<InheritanceResponse> GetInheritanceAsync(long symbolId, bool includeAncestors, bool includeDescendants, CancellationToken ct);
     }
 }
 
