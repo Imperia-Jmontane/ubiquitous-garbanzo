@@ -41,6 +41,9 @@ fi
 export DOTNET_ROOT="$HOME/.dotnet"
 export PATH="$DOTNET_ROOT:$DOTNET_ROOT/tools:$PATH"
 
+echo "=== Creating global symlink for dotnet CLI ==="
+sudo ln -sf "$HOME/.dotnet/dotnet" /usr/local/bin/dotnet
+
 echo "=== Verifying installation ==="
 dotnet --info
 dotnet --list-sdks
