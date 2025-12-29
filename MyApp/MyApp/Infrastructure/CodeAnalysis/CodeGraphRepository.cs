@@ -694,6 +694,171 @@ namespace MyApp.Infrastructure.CodeAnalysis
             return results;
         }
 
+        public async Task<bool> SymbolExistsAsync(long symbolId, CancellationToken ct)
+        {
+            return await dbContext.CodeNodes
+                .AsNoTracking()
+                .AnyAsync(node => node.Id == symbolId, ct)
+                .ConfigureAwait(false);
+        }
+
+        public async Task<List<SymbolSearchResult>> GetCallersAsync(long symbolId, CancellationToken ct)
+        {
+            CodeNode? symbolNode = await dbContext.CodeNodes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(node => node.Id == symbolId, ct)
+                .ConfigureAwait(false);
+
+            if (symbolNode == null || !symbolNode.RepositorySnapshotId.HasValue)
+            {
+                return new List<SymbolSearchResult>();
+            }
+
+            long repositoryId = symbolNode.RepositorySnapshotId.Value;
+
+            List<long> callerIds = await dbContext.CodeEdges
+                .AsNoTracking()
+                .Where(edge => edge.RepositorySnapshotId == repositoryId
+                    && edge.Type == CSharpReferenceKind.Call
+                    && edge.TargetNodeId == symbolId)
+                .Select(edge => edge.SourceNodeId)
+                .Distinct()
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            if (callerIds.Count == 0)
+            {
+                return new List<SymbolSearchResult>();
+            }
+
+            List<CodeNode> callerNodes = await dbContext.CodeNodes
+                .AsNoTracking()
+                .Where(node => callerIds.Contains(node.Id))
+                .OrderBy(node => node.DisplayName ?? node.SerializedName)
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            return await BuildSymbolSearchResultsAsync(callerNodes, ct).ConfigureAwait(false);
+        }
+
+        public async Task<List<SymbolSearchResult>> GetCalleesAsync(long symbolId, CancellationToken ct)
+        {
+            CodeNode? symbolNode = await dbContext.CodeNodes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(node => node.Id == symbolId, ct)
+                .ConfigureAwait(false);
+
+            if (symbolNode == null || !symbolNode.RepositorySnapshotId.HasValue)
+            {
+                return new List<SymbolSearchResult>();
+            }
+
+            long repositoryId = symbolNode.RepositorySnapshotId.Value;
+
+            List<long> calleeIds = await dbContext.CodeEdges
+                .AsNoTracking()
+                .Where(edge => edge.RepositorySnapshotId == repositoryId
+                    && edge.Type == CSharpReferenceKind.Call
+                    && edge.SourceNodeId == symbolId)
+                .Select(edge => edge.TargetNodeId)
+                .Distinct()
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            if (calleeIds.Count == 0)
+            {
+                return new List<SymbolSearchResult>();
+            }
+
+            List<CodeNode> calleeNodes = await dbContext.CodeNodes
+                .AsNoTracking()
+                .Where(node => calleeIds.Contains(node.Id))
+                .OrderBy(node => node.DisplayName ?? node.SerializedName)
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            return await BuildSymbolSearchResultsAsync(calleeNodes, ct).ConfigureAwait(false);
+        }
+
+        public async Task<InheritanceResponse> GetInheritanceAsync(long symbolId, bool includeAncestors, bool includeDescendants, CancellationToken ct)
+        {
+            CodeNode? symbolNode = await dbContext.CodeNodes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(node => node.Id == symbolId, ct)
+                .ConfigureAwait(false);
+
+            if (symbolNode == null || !symbolNode.RepositorySnapshotId.HasValue)
+            {
+                return new InheritanceResponse();
+            }
+
+            long repositoryId = symbolNode.RepositorySnapshotId.Value;
+            List<CSharpReferenceKind> inheritanceKinds = new List<CSharpReferenceKind>
+            {
+                CSharpReferenceKind.Inheritance,
+                CSharpReferenceKind.InterfaceImplementation
+            };
+
+            List<SymbolSearchResult> ancestorResults = new List<SymbolSearchResult>();
+            List<SymbolSearchResult> descendantResults = new List<SymbolSearchResult>();
+
+            if (includeAncestors)
+            {
+                List<long> ancestorIds = await dbContext.CodeEdges
+                    .AsNoTracking()
+                    .Where(edge => edge.RepositorySnapshotId == repositoryId
+                        && edge.SourceNodeId == symbolId
+                        && inheritanceKinds.Contains(edge.Type))
+                    .Select(edge => edge.TargetNodeId)
+                    .Distinct()
+                    .ToListAsync(ct)
+                    .ConfigureAwait(false);
+
+                if (ancestorIds.Count > 0)
+                {
+                    List<CodeNode> ancestorNodes = await dbContext.CodeNodes
+                        .AsNoTracking()
+                        .Where(node => ancestorIds.Contains(node.Id))
+                        .OrderBy(node => node.DisplayName ?? node.SerializedName)
+                        .ToListAsync(ct)
+                        .ConfigureAwait(false);
+
+                    ancestorResults = await BuildSymbolSearchResultsAsync(ancestorNodes, ct).ConfigureAwait(false);
+                }
+            }
+
+            if (includeDescendants)
+            {
+                List<long> descendantIds = await dbContext.CodeEdges
+                    .AsNoTracking()
+                    .Where(edge => edge.RepositorySnapshotId == repositoryId
+                        && edge.TargetNodeId == symbolId
+                        && inheritanceKinds.Contains(edge.Type))
+                    .Select(edge => edge.SourceNodeId)
+                    .Distinct()
+                    .ToListAsync(ct)
+                    .ConfigureAwait(false);
+
+                if (descendantIds.Count > 0)
+                {
+                    List<CodeNode> descendantNodes = await dbContext.CodeNodes
+                        .AsNoTracking()
+                        .Where(node => descendantIds.Contains(node.Id))
+                        .OrderBy(node => node.DisplayName ?? node.SerializedName)
+                        .ToListAsync(ct)
+                        .ConfigureAwait(false);
+
+                    descendantResults = await BuildSymbolSearchResultsAsync(descendantNodes, ct).ConfigureAwait(false);
+                }
+            }
+
+            return new InheritanceResponse
+            {
+                Ancestors = ancestorResults,
+                Descendants = descendantResults
+            };
+        }
+
         private static bool IsNodeAllowed(CodeNode node, GraphQueryOptions options)
         {
             if (!options.IncludeMembers && node.ParentNodeId.HasValue)
@@ -717,6 +882,39 @@ namespace MyApp.Infrastructure.CodeAnalysis
             }
 
             return true;
+        }
+
+        private async Task<List<SymbolSearchResult>> BuildSymbolSearchResultsAsync(List<CodeNode> nodes, CancellationToken ct)
+        {
+            List<SymbolSearchResult> results = new List<SymbolSearchResult>();
+
+            if (nodes.Count == 0)
+            {
+                return results;
+            }
+
+            List<long> nodeIds = nodes.Select(node => node.Id).ToList();
+            Dictionary<long, NodeLocation> locations = await GetNodeLocationLookupAsync(nodeIds, LocationType.Definition, ct).ConfigureAwait(false);
+
+            foreach (CodeNode node in nodes)
+            {
+                NodeLocation? location;
+                locations.TryGetValue(node.Id, out location);
+
+                SymbolSearchResult result = new SymbolSearchResult
+                {
+                    Id = node.Id,
+                    DisplayName = node.DisplayName ?? node.SerializedName,
+                    SerializedName = node.SerializedName,
+                    Kind = node.Type.ToString(),
+                    FilePath = location == null ? null : location.FilePath,
+                    Line = location == null ? null : location.Line
+                };
+
+                results.Add(result);
+            }
+
+            return results;
         }
 
         private async Task<Dictionary<long, NodeLocation>> GetNodeLocationLookupAsync(List<long> nodeIds, LocationType locationType, CancellationToken ct)

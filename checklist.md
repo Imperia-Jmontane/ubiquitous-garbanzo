@@ -777,26 +777,26 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 Create folder: `MyApp/Controllers/Api/` (if not exists)
 
-- [ ] Create `CodeAnalysisApiController.cs`:
+- [x] Create `CodeAnalysisApiController.cs`:
   - Attribute: `[ApiController]`, `[Route("api/code-analysis")]`
   - Inject: `IIndexingJobService`, `ICodeGraphRepository`, `ILogger<CodeAnalysisApiController>`
   - **Note:** Do NOT inject `ICodeIndexer` directly - use job service for background processing
 
 ### 4.2 Implement Endpoints
 
-- [ ] `POST /api/code-analysis/index`:
+- [x] `POST /api/code-analysis/index`:
   - Request body: `{ repositoryId: string }` (NOT repositoryPath - security!)
   - **Validate repositoryId** exists in your system (use existing repository storage)
   - Queue indexing job (returns immediately)
   - Return: `{ jobId: long, status: "Queued", message: "Indexing started" }`
   - **Security:** Validate repositoryId against known repositories to prevent path traversal
 
-- [ ] `GET /api/code-analysis/status`:
+- [x] `GET /api/code-analysis/status`:
   - Query params: `repositoryId` (required)
   - Return: `{ repositoryId, status, startedAt, completedAt, filesIndexed, totalFiles, currentFile, errorMessage, progressPercent }`
   - This drives the UI status indicator
 
-- [ ] `GET /api/code-analysis/graph`:
+- [x] `GET /api/code-analysis/graph`:
   - Query params:
     - `repositoryId` (required)
     - `maxDepth` (default 2)
@@ -809,31 +809,31 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
   - Call `GetGraphDataAsync` on repository
   - Return: `{ nodes: [...], edges: [...], hasMore: bool }`
 
-- [ ] `GET /api/code-analysis/symbols/{symbolId}/references`:
+- [x] `GET /api/code-analysis/symbols/{symbolId}/references`:
   - Get all locations where a symbol is referenced
   - Return: `[{ filePath, line, column, endLine, endColumn, context }, ...]`
 
-- [ ] `GET /api/code-analysis/symbols/{symbolId}/callers`:
+- [x] `GET /api/code-analysis/symbols/{symbolId}/callers`:
   - Get all methods that call this method
   - Query edges where `type = Call` and `targetNodeId = symbolId`
   - Return: `[{ id, displayName, kind, filePath, line }, ...]`
 
-- [ ] `GET /api/code-analysis/symbols/{symbolId}/callees`:
+- [x] `GET /api/code-analysis/symbols/{symbolId}/callees`:
   - Get all methods that this method calls
   - Query edges where `type = Call` and `sourceNodeId = symbolId`
   - Return: `[{ id, displayName, kind, filePath, line }, ...]`
 
-- [ ] `GET /api/code-analysis/inheritance/{symbolId}`:
+- [x] `GET /api/code-analysis/inheritance/{symbolId}`:
   - Query params: `ancestors` (default true), `descendants` (default true)
   - Build inheritance tree
   - Return: `{ ancestors: [...], descendants: [...] }`
 
-- [ ] `GET /api/code-analysis/search`:
+- [x] `GET /api/code-analysis/search`:
   - Query params: `repositoryId`, `query`, `limit` (default 20)
   - Search by display name using NormalizedName column
   - Return: `[{ id, displayName, serializedName, kind, filePath, line }, ...]`
 
-- [ ] `GET /api/code-analysis/source`:
+- [x] `GET /api/code-analysis/source`:
   - Query params: `repositoryId`, `filePath`, `startLine`, `endLine` (default: entire file)
   - **Security:** Validate filePath is within repository root
   - Read source code from repository (use existing LocalRepository storage)
@@ -841,10 +841,10 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
 
 ### 4.3 Add Swagger Documentation
 
-- [ ] Add `[SwaggerOperation]` attributes to each endpoint
-- [ ] Add `[ProducesResponseType]` attributes for response types
-- [ ] Add XML comments for parameters
-- [ ] Document error responses (404, 400, 500)
+- [x] Add `[SwaggerOperation]` attributes to each endpoint
+- [x] Add `[ProducesResponseType]` attributes for response types
+- [x] Add XML comments for parameters
+- [x] Document error responses (404, 400, 500)
 
 ### 4.4 Verification
 
