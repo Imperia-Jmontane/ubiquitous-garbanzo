@@ -756,14 +756,14 @@ Create in: `MyApp.CodeAnalysis/Indexing/` (Roslyn project)
 
 ### 3.8 Verification
 
-- [ ] Write integration test that:
+- [x] Write integration test that:
   - Points to a small test project (you can use MyApp itself)
   - Runs the indexer
   - Verifies nodes were created
   - Verifies edges were created
   - Verifies source locations were recorded
 
-- [ ] Test with edge cases:
+- [x] Test with edge cases:
   - Empty project
   - Project with compilation errors (should still index what it can - **partial success**)
   - Project with multiple files
