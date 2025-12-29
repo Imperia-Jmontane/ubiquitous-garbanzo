@@ -503,47 +503,47 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 2.4 Create Repository Implementation
 
-- [ ] Create `CodeGraphRepository.cs` in `MyApp/MyApp/Infrastructure/CodeAnalysis/`:
+- [x] Create `CodeGraphRepository.cs` in `MyApp/MyApp/Infrastructure/CodeAnalysis/`:
   - Implement `ICodeGraphRepository` interface
   - Inject `ApplicationDbContext` via constructor (NOT a separate context!)
   - Use a `Dictionary<string, long>` cache for node name -> ID mapping (performance optimization)
   - Use a `Dictionary<string, long>` cache for file path -> ID mapping
   - Reference: `Resources/RoslynExamples/WorkspaceLoader.cs` for the caching pattern
 
-- [ ] Implement transaction methods:
+- [x] Implement transaction methods:
   - `BeginTransactionAsync`: Start EF Core transaction
   - `CommitTransactionAsync`: Commit transaction and clear caches
   - `RollbackTransactionAsync`: Rollback and clear caches
 
-- [ ] Implement `RecordNode`:
+- [x] Implement `RecordNode`:
   - Check cache first
   - If not in cache, check database
   - If not in database, create new node
   - **Set NormalizedName = DisplayName?.ToLowerInvariant()** for search
   - Add to cache and return ID
 
-- [ ] Implement `RecordExternalNode`:
+- [x] Implement `RecordExternalNode`:
   - For symbols from referenced assemblies (System.String, etc.)
   - Store minimal info (just serialized name, display name, kind)
   - Mark with a flag or store separately to distinguish from source-defined symbols
 
-- [ ] Implement `RecordEdge`:
+- [x] Implement `RecordEdge`:
   - Create edge entity
   - Save to database
   - Return edge ID
 
-- [ ] Implement `IsFileChangedAsync`:
+- [x] Implement `IsFileChangedAsync`:
   - Check if file hash differs from stored hash
   - Used for incremental indexing
 
-- [ ] Implement `GetGraphDataAsync`:
+- [x] Implement `GetGraphDataAsync`:
   - Build query based on options (depth, rootNodeId, includeMembers, maxNodes, maxEdges)
   - **Respect maxNodes and maxEdges limits** (pagination)
   - Use recursive CTE or multiple queries to get related nodes
   - Set `HasMore = true` if more nodes/edges exist beyond limit
   - Map to DTOs with **string enum names** for Type fields
 
-- [ ] Implement `SearchSymbolsAsync`:
+- [x] Implement `SearchSymbolsAsync`:
   - Use NormalizedName with LIKE query for partial matching
   - Order by relevance (exact match first, then prefix match, then contains)
   - Respect limit parameter
