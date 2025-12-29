@@ -429,7 +429,7 @@ Create in: `MyApp/MyApp/Application/CodeAnalysis/DTOs/`
 
 ### 2.1 Add Configuration to appsettings.json
 
-- [ ] Add CodeAnalysis section to `MyApp/appsettings.json`:
+- [x] Add CodeAnalysis section to `MyApp/appsettings.json`:
   ```json
   {
     "CodeAnalysis": {
@@ -441,7 +441,7 @@ Create in: `MyApp/MyApp/Application/CodeAnalysis/DTOs/`
 
   **Note:** No separate ConnectionString needed - uses existing ApplicationDbContext.
 
-- [ ] Create `CodeAnalysisOptions.cs` in `MyApp/MyApp/Application/Configuration/`:
+- [x] Create `CodeAnalysisOptions.cs` in `MyApp/MyApp/Application/Configuration/`:
   ```csharp
   public sealed class CodeAnalysisOptions
   {
@@ -456,7 +456,7 @@ Create in: `MyApp/MyApp/Application/CodeAnalysis/DTOs/`
 
 Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
-- [ ] Add DbSet properties for Code Analysis entities:
+- [x] Add DbSet properties for Code Analysis entities:
   ```csharp
   // Add these DbSet properties to ApplicationDbContext
   public DbSet<IndexedRepository> IndexedRepositories { get; set; } = null!;
@@ -468,7 +468,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   public DbSet<IndexingError> IndexingErrors { get; set; } = null!;
   ```
 
-- [ ] Add configuration call in `OnModelCreating`:
+- [x] Add configuration call in `OnModelCreating`:
   ```csharp
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -481,7 +481,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   }
   ```
 
-- [ ] Copy entity configuration methods from `Resources/EFCoreExamples/CodeAnalysisDbContext.cs`:
+- [x] Copy entity configuration methods from `Resources/EFCoreExamples/CodeAnalysisDbContext.cs`:
   - Copy `ConfigureCodeAnalysisEntities` and all `Configure*` methods
   - These configure indices, relationships, and constraints
   - **DO NOT copy DateTimeOffset conversion** - already exists in ApplicationDbContext
