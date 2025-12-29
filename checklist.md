@@ -420,8 +420,8 @@ Create in: `MyApp/MyApp/Application/CodeAnalysis/DTOs/`
   dotnet build MyApp.CodeAnalysis/MyApp.CodeAnalysis.csproj
   ```
 - [x] Verify all files are in the correct locations
-- [ ] Ensure no `var` keywords are used (use explicit types)
-- [ ] Ensure PascalCase for all public members
+- [x] Ensure no `var` keywords are used (use explicit types)
+- [x] Ensure PascalCase for all public members
 
 ---
 
@@ -580,21 +580,7 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
       builder.Configuration.GetSection("CodeAnalysis"));
   ```
 
-- [ ] In `Program.cs`, add DbContext:
-  ```csharp
-  // Add CodeAnalysis DbContext
-  builder.Services.AddDbContext<CodeAnalysisDbContext>((serviceProvider, options) =>
-  {
-      IConfiguration configuration = serviceProvider.GetRequiredService<IConfiguration>();
-      string connectionString = configuration.GetValue<string>("CodeAnalysis:ConnectionString")
-          ?? "Data Source=code_analysis.db";
-
-      // Replace {AppDataPath} placeholder (matching existing pattern)
-      connectionString = connectionString.Replace("{AppDataPath}", appDataPath);
-
-      options.UseSqlite(connectionString);
-  });
-  ```
+- [x] ~~In `Program.cs`, add DbContext~~ (NOT NEEDED - uses existing ApplicationDbContext)
 
 - [x] Register repository:
   ```csharp
