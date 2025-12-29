@@ -488,13 +488,13 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
 
 ### 2.3 Create Migration
 
-- [ ] Generate migration for Code Analysis tables:
+- [x] Generate migration for Code Analysis tables:
   ```bash
   cd MyApp/MyApp
   dotnet ef migrations add AddCodeAnalysis
   ```
 
-- [ ] Verify migration was created in `Data/Migrations/`
+- [x] Verify migration was created in `Data/Migrations/`
 
 - [ ] Test migration applies cleanly:
   ```bash
@@ -555,13 +555,13 @@ Location: `MyApp/MyApp/Data/ApplicationDbContext.cs`
   dotnet add MyApp/MyApp.csproj package Microsoft.EntityFrameworkCore.Design --version 9.0.0
   ```
 
-- [ ] Create migration (uses existing ApplicationDbContext):
+- [x] Create migration (uses existing ApplicationDbContext):
   ```bash
   cd MyApp/MyApp
   dotnet ef migrations add AddCodeAnalysis
   ```
 
-- [ ] Review generated migration in `Data/Migrations/` and verify it matches the schema
+- [x] Review generated migration in `Data/Migrations/` and verify it matches the schema
   - Check all indices are created
   - Check foreign keys are correct
   - Check nullable columns are correct
