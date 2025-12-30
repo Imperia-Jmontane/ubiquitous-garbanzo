@@ -36,6 +36,26 @@ namespace MyApp.Controllers.Api
         }
 
         /// <summary>
+        /// Gets a list of available repositories for code analysis.
+        /// </summary>
+        /// <returns>List of repositories.</returns>
+        [HttpGet("repositories")]
+        [SwaggerOperation(Summary = "List repositories", Description = "Returns a list of repositories available for code analysis.", OperationId = "ListCodeAnalysisRepositories")]
+        [ProducesResponseType(typeof(List<RepositoryListItem>), StatusCodes.Status200OK)]
+        public IActionResult ListRepositories()
+        {
+            IReadOnlyCollection<LocalRepository> repositories = localRepositoryService.GetRepositories();
+            List<RepositoryListItem> items = repositories.Select(repository => new RepositoryListItem
+            {
+                Id = repository.Name,
+                Name = repository.Name,
+                Path = repository.FullPath
+            }).ToList();
+
+            return Ok(items);
+        }
+
+        /// <summary>
         /// Queues a repository for background indexing.
         /// </summary>
         /// <param name="request">The repository indexing request.</param>

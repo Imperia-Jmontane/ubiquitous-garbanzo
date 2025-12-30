@@ -5,7 +5,8 @@ const initializeCodeAnalysisPage = () => {
         return;
     }
 
-    const repositoryId = root.dataset.repositoryId || "";
+    let repositoryId = root.dataset.repositoryId || "";
+    const repositorySelector = root.querySelector("[data-repository-selector]");
     const startIndexingButton = root.querySelector("[data-start-indexing]");
     const statusBadge = root.querySelector("[data-indexing-status]");
     const statusText = root.querySelector("[data-indexing-text]");
@@ -30,6 +31,7 @@ const initializeCodeAnalysisPage = () => {
     const sourceRange = root.querySelector("[data-source-range]");
     const sourceCode = root.querySelector("[data-source-code]");
     const referencesItems = root.querySelector("[data-references-items]");
+    const symbolTree = root.querySelector("[data-symbol-tree]");
 
     const statusClasses = ["text-emerald-300", "text-amber-300", "text-sky-300", "text-rose-300", "text-gray-300"];
     const dotClasses = ["bg-emerald-400", "bg-amber-400", "bg-sky-400", "bg-rose-400", "bg-gray-400"];
@@ -37,6 +39,93 @@ const initializeCodeAnalysisPage = () => {
     let statusInterval = null;
     let searchTimeout = null;
     let lastSelectedNodeId = null;
+
+    const loadRepositories = async () => {
+        if (repositorySelector === null) {
+            return;
+        }
+
+        try {
+            const response = await fetch("/api/code-analysis/repositories");
+            if (!response.ok) {
+                return;
+            }
+
+            const repositories = await response.json();
+            repositorySelector.innerHTML = "<option value=\"\">Select a repository...</option>";
+
+            if (!Array.isArray(repositories) || repositories.length === 0) {
+                repositorySelector.innerHTML = "<option value=\"\">No repositories available</option>";
+                return;
+            }
+
+            repositories.forEach((repository) => {
+                const option = document.createElement("option");
+                option.value = repository.id;
+                option.textContent = repository.name;
+                if (repository.id === repositoryId) {
+                    option.selected = true;
+                }
+                repositorySelector.appendChild(option);
+            });
+
+            updateRepositorySelection();
+        } catch (error) {
+            console.warn("Failed to load repositories", error);
+        }
+    };
+
+    const updateRepositorySelection = () => {
+        const hasRepository = repositoryId.length > 0;
+
+        if (startIndexingButton !== null) {
+            if (hasRepository) {
+                startIndexingButton.removeAttribute("disabled");
+            } else {
+                startIndexingButton.setAttribute("disabled", "disabled");
+            }
+        }
+
+        if (symbolTree !== null) {
+            if (hasRepository) {
+                symbolTree.innerHTML = "<p class=\"text-xs uppercase tracking-wide text-gray-500\">Symbol tree</p><p class=\"mt-2\">Loading symbols...</p>";
+            } else {
+                symbolTree.innerHTML = "<p class=\"text-xs uppercase tracking-wide text-gray-500\">Symbol tree</p><p class=\"mt-2\">Select a repository to load symbols.</p>";
+            }
+        }
+
+        if (hasRepository) {
+            updateStatusBadge("Ready to index");
+            setPlaceholderText("Start indexing to render the graph.");
+        } else {
+            updateStatusBadge("No repository");
+            setPlaceholderText("Select a repository to begin.");
+        }
+    };
+
+    const onRepositoryChange = () => {
+        if (repositorySelector === null) {
+            return;
+        }
+
+        repositoryId = repositorySelector.value;
+        root.dataset.repositoryId = repositoryId;
+
+        if (statusInterval !== null) {
+            window.clearInterval(statusInterval);
+            statusInterval = null;
+        }
+
+        if (activeRenderer !== null && typeof activeRenderer.clearNeighborFocus === "function") {
+            activeRenderer.clearNeighborFocus();
+        }
+
+        updateRepositorySelection();
+
+        if (repositoryId.length > 0) {
+            updateStatusFromApi();
+        }
+    };
 
     const updateStatusBadge = (statusLabel) => {
         if (statusText !== null) {
@@ -123,7 +212,10 @@ const initializeCodeAnalysisPage = () => {
     };
 
     const loadGraph = async () => {
+        console.log("[CodeAnalysis] loadGraph called, activeRenderer:", activeRenderer, "repositoryId:", repositoryId);
+
         if (activeRenderer === null || repositoryId.length === 0) {
+            console.warn("[CodeAnalysis] loadGraph aborted: no renderer or repositoryId");
             return;
         }
 
@@ -131,18 +223,26 @@ const initializeCodeAnalysisPage = () => {
 
         try {
             const query = buildGraphQuery();
+            console.log("[CodeAnalysis] Fetching graph with query:", query.toString());
             const response = await fetch(`/api/code-analysis/graph?${query.toString()}`);
 
             if (!response.ok) {
+                console.error("[CodeAnalysis] Graph fetch failed:", response.status);
                 setPlaceholderText("Unable to load graph.");
                 return;
             }
 
             const graphData = await response.json();
+            console.log("[CodeAnalysis] Graph data received:", graphData.nodes?.length, "nodes,", graphData.edges?.length, "edges");
             const layoutName = layoutSelector instanceof HTMLSelectElement ? layoutSelector.value : "dagre";
             await activeRenderer.loadGraph(repositoryId, { graphData: graphData, layoutName: layoutName });
             setPlaceholderText("");
+
+            if (graphPlaceholder !== null) {
+                graphPlaceholder.classList.add("hidden");
+            }
         } catch (error) {
+            console.error("[CodeAnalysis] loadGraph error:", error);
             setPlaceholderText("Unable to load graph.");
         }
     };
@@ -309,6 +409,7 @@ const initializeCodeAnalysisPage = () => {
     };
 
     document.addEventListener("codeGraph:ready", (event) => {
+        console.log("[CodeAnalysis] codeGraph:ready event received", event.detail);
         if (event.detail && event.detail.renderer) {
             activeRenderer = event.detail.renderer;
         }
@@ -318,6 +419,16 @@ const initializeCodeAnalysisPage = () => {
             updateStatusFromApi();
         }
     });
+
+    // Check if renderer was already initialized before this script loaded
+    if (root.codeGraphRenderer) {
+        console.log("[CodeAnalysis] Renderer already exists on root, using it");
+        activeRenderer = root.codeGraphRenderer;
+        if (repositoryId.length > 0) {
+            loadGraph();
+            updateStatusFromApi();
+        }
+    }
 
     document.addEventListener("codeGraph:nodeSelected", (event) => {
         if (event.detail && event.detail.nodeId) {
@@ -470,6 +581,12 @@ const initializeCodeAnalysisPage = () => {
             }
         });
     }
+
+    if (repositorySelector !== null) {
+        repositorySelector.addEventListener("change", onRepositoryChange);
+    }
+
+    loadRepositories();
 };
 
 document.addEventListener("DOMContentLoaded", () => {

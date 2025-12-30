@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -187,6 +188,9 @@ namespace MyApp.Infrastructure.CodeAnalysis
             if (solutionFiles.Any())
             {
                 string solutionPath = solutionFiles.First();
+
+                await RestorePackagesAsync(solutionPath, ct).ConfigureAwait(false);
+
                 return await codeIndexer.IndexSolutionAsync(snapshotId, solutionPath, ct).ConfigureAwait(false);
             }
 
@@ -195,6 +199,9 @@ namespace MyApp.Infrastructure.CodeAnalysis
             if (projectFiles.Any())
             {
                 string projectPath = projectFiles.First();
+
+                await RestorePackagesAsync(projectPath, ct).ConfigureAwait(false);
+
                 return await codeIndexer.IndexProjectAsync(snapshotId, projectPath, ct).ConfigureAwait(false);
             }
 
@@ -206,6 +213,47 @@ namespace MyApp.Infrastructure.CodeAnalysis
 
             result.Errors.Add("No solution or project files were found in the repository.");
             return result;
+        }
+
+        private async Task RestorePackagesAsync(string solutionOrProjectPath, CancellationToken ct)
+        {
+            logger.LogInformation("Restoring NuGet packages for {Path}", solutionOrProjectPath);
+
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"restore \"{solutionOrProjectPath}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using Process? process = Process.Start(startInfo);
+
+            if (process == null)
+            {
+                logger.LogWarning("Failed to start dotnet restore process");
+                return;
+            }
+
+            Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+            Task<string> errorTask = process.StandardError.ReadToEndAsync();
+
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+
+            string output = await outputTask.ConfigureAwait(false);
+            string error = await errorTask.ConfigureAwait(false);
+
+            if (process.ExitCode != 0)
+            {
+                logger.LogWarning("dotnet restore failed with exit code {ExitCode}. Output: {Output}. Error: {Error}",
+                    process.ExitCode, output, error);
+            }
+            else
+            {
+                logger.LogInformation("dotnet restore completed successfully");
+            }
         }
 
         private LocalRepository? FindRepository(string repositoryId)

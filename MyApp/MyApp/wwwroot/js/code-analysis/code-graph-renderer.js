@@ -7,16 +7,20 @@ class CodeGraphRenderer {
 
     async initialize() {
         const container = document.getElementById(this.containerId);
+        console.log("[CodeGraphRenderer] initialize called, container:", container, "containerId:", this.containerId);
 
         if (container === null) {
+            console.error("[CodeGraphRenderer] Container not found");
             return;
         }
 
         if (typeof window.cytoscape !== "function") {
+            console.error("[CodeGraphRenderer] Cytoscape not loaded");
             this.dispatchEvent("codeGraph:error", { message: "Cytoscape failed to load." });
             return;
         }
 
+        console.log("[CodeGraphRenderer] Creating cytoscape instance");
         this.cy = window.cytoscape({
             container: container,
             elements: [],
@@ -27,6 +31,7 @@ class CodeGraphRenderer {
         });
 
         this.setupEventHandlers();
+        console.log("[CodeGraphRenderer] Dispatching codeGraph:ready event");
         this.dispatchEvent("codeGraph:ready", { renderer: this });
         this.dispatchEvent("codeGraph:graphLoaded", { nodes: 0, edges: 0 });
     }
