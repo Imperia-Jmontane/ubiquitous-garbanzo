@@ -11,8 +11,8 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <div class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-300" data-indexing-status>
-                <span class="inline-flex size-2 rounded-full bg-emerald-400"></span>
-                <span>Ready to index</span>
+                <span class="inline-flex size-2 rounded-full bg-emerald-400" data-indexing-dot></span>
+                <span data-indexing-text>Ready to index</span>
             </div>
             <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500/90 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-950/40 transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400" data-start-indexing>
                 <span>Start indexing</span>
@@ -26,27 +26,7 @@
                 <label for="symbol-search" class="text-xs font-semibold uppercase tracking-wide text-gray-400">Symbol search</label>
                 <input id="symbol-search" type="search" placeholder="Search symbols" class="w-full rounded-lg border border-white/10 bg-gray-950/60 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" data-symbol-search />
             </div>
-            <div class="space-y-2" data-filter-panel>
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Filters</p>
-                <div class="space-y-2 text-sm text-gray-300">
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Class" />
-                        <span>Classes</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Interface" />
-                        <span>Interfaces</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Method" />
-                        <span>Methods</span>
-                    </label>
-                    <label class="flex items-center gap-2">
-                        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Property" />
-                        <span>Properties</span>
-                    </label>
-                </div>
-            </div>
+            <partial name="_FilterPanel" />
             <div class="rounded-xl border border-white/10 bg-gray-950/40 p-3 text-sm text-gray-400" data-symbol-tree>
                 <p class="text-xs uppercase tracking-wide text-gray-500">Symbol tree</p>
                 <p class="mt-2">Select a repository to load symbols.</p>
@@ -81,21 +61,15 @@
         <aside class="space-y-4 rounded-2xl border border-white/10 bg-gray-900/70 p-4 shadow-inner shadow-black/20" data-details-panel>
             <div class="space-y-2">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Symbol details</p>
-                <div class="rounded-lg border border-white/10 bg-gray-950/60 p-3 text-sm text-gray-300" data-symbol-details>
-                    Select a node to view details.
-                </div>
+                <partial name="_SymbolDetails" />
             </div>
             <div class="space-y-2">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Source preview</p>
-                <div class="rounded-lg border border-white/10 bg-gray-950/60 p-3 text-xs text-gray-400" data-source-preview>
-                    Source preview will appear here.
-                </div>
+                <partial name="_SourcePreview" />
             </div>
             <div class="space-y-2">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">References</p>
-                <div class="rounded-lg border border-white/10 bg-gray-950/60 p-3 text-xs text-gray-400" data-references-list>
-                    Reference list will appear here.
-                </div>
+                <partial name="_ReferencesList" />
             </div>
         </aside>
     </div>
@@ -109,4 +83,5 @@
     <script src="https://unpkg.com/prismjs@1.29.0/prism.js"></script>
     <script src="https://unpkg.com/prismjs@1.29.0/components/prism-csharp.js"></script>
     <script src="~/js/code-analysis/code-graph-renderer.js" asp-append-version="true"></script>
+    <script src="~/js/code-analysis/code-analysis-page.js" asp-append-version="true"></script>
 }
