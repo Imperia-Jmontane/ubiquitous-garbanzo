@@ -27,6 +27,7 @@ class CodeGraphRenderer {
         });
 
         this.setupEventHandlers();
+        this.dispatchEvent("codeGraph:ready", { renderer: this });
         this.dispatchEvent("codeGraph:graphLoaded", { nodes: 0, edges: 0 });
     }
 
@@ -62,6 +63,12 @@ class CodeGraphRenderer {
                     "line-color": "#22d3ee",
                     "target-arrow-color": "#22d3ee"
                 }
+            },
+            {
+                selector: ".is-muted",
+                style: {
+                    "opacity": 0.2
+                }
             }
         ];
     }
@@ -73,12 +80,26 @@ class CodeGraphRenderer {
 
         this.cy.on("tap", "node", (event) => {
             const node = event.target;
-            this.dispatchEvent("codeGraph:nodeSelected", { nodeId: node.id() });
+            this.dispatchEvent("codeGraph:nodeSelected", {
+                nodeId: node.id(),
+                label: node.data("label"),
+                kind: node.data("kind"),
+                filePath: node.data("filePath"),
+                line: node.data("line"),
+                column: node.data("column")
+            });
         });
 
         this.cy.on("dbltap", "node", (event) => {
             const node = event.target;
-            this.dispatchEvent("codeGraph:navigateToSource", { nodeId: node.id() });
+            this.dispatchEvent("codeGraph:navigateToSource", {
+                nodeId: node.id(),
+                label: node.data("label"),
+                kind: node.data("kind"),
+                filePath: node.data("filePath"),
+                line: node.data("line"),
+                column: node.data("column")
+            });
         });
     }
 
@@ -91,7 +112,7 @@ class CodeGraphRenderer {
             const elements = this.transformToElements(options.graphData);
             this.cy.elements().remove();
             this.cy.add(elements);
-            this.applyLayout("dagre");
+            this.applyLayout(options.layoutName || "dagre");
             this.dispatchEvent("codeGraph:graphLoaded", { nodes: elements.nodes.length, edges: elements.edges.length });
             return;
         }
@@ -105,7 +126,10 @@ class CodeGraphRenderer {
                 id: node.id.toString(),
                 label: node.displayName || node.serializedName,
                 kind: node.type,
-                parent: node.parentId ? node.parentId.toString() : undefined
+                parent: node.parentId ? node.parentId.toString() : undefined,
+                filePath: node.filePath,
+                line: node.line,
+                column: node.column
             }
         }));
 
@@ -133,6 +157,28 @@ class CodeGraphRenderer {
         });
 
         layout.run();
+    }
+
+    fitToView() {
+        if (this.cy === null) {
+            return;
+        }
+
+        this.cy.fit(undefined, 30);
+    }
+
+    getNodeData(nodeId) {
+        if (this.cy === null) {
+            return null;
+        }
+
+        const node = this.cy.getElementById(nodeId.toString());
+
+        if (node.empty()) {
+            return null;
+        }
+
+        return node.data();
     }
 
     focusOnNode(nodeId) {
@@ -166,6 +212,30 @@ class CodeGraphRenderer {
 
         source.addClass("is-highlighted");
         target.addClass("is-highlighted");
+    }
+
+    showNeighborsOnly(nodeId) {
+        if (this.cy === null) {
+            return;
+        }
+
+        this.cy.elements().removeClass("is-muted");
+        const focusNode = this.cy.getElementById(nodeId.toString());
+
+        if (focusNode.empty()) {
+            return;
+        }
+
+        const neighborhood = focusNode.closedNeighborhood();
+        this.cy.elements().difference(neighborhood).addClass("is-muted");
+    }
+
+    clearNeighborFocus() {
+        if (this.cy === null) {
+            return;
+        }
+
+        this.cy.elements().removeClass("is-muted");
     }
 
     filterByKind(kinds) {
@@ -245,6 +315,7 @@ const initializeCodeGraphRenderer = () => {
     const renderer = new CodeGraphRenderer(graphContainer.id, {});
     renderer.initialize();
 
+    root.codeGraphRenderer = renderer;
     root.dataset.graphRendererReady = "true";
 };
 

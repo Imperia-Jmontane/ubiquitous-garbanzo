@@ -942,23 +942,23 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
 
 ### 5.4 Create Partial Views
 
-- [ ] Create `_SymbolDetails.cshtml`:
+- [x] Create `_SymbolDetails.cshtml`:
   - Display symbol name, kind (with icon), full name, location
   - Include "View in File" link
   - Show modifiers (static, abstract, virtual, async)
 
-- [ ] Create `_SourcePreview.cshtml`:
+- [x] Create `_SourcePreview.cshtml`:
   - Code block with Prism.js syntax highlighting
   - Line numbers
   - Highlight current line
   - Support for scrolling to specific line
 
-- [ ] Create `_ReferencesList.cshtml`:
+- [x] Create `_ReferencesList.cshtml`:
   - List of file:line references
   - Clickable to navigate
   - Group by file for better readability
 
-- [ ] Create `_FilterPanel.cshtml`:
+- [x] Create `_FilterPanel.cshtml`:
   - Checkboxes for symbol kinds (Classes, Interfaces, Methods, Properties, Fields)
   - Namespace filter input with autocomplete
   - Depth slider (1-5)
@@ -968,20 +968,20 @@ Create folder: `MyApp/Controllers/Api/` (if not exists)
 
 In the view's `@section Scripts`:
 
-- [ ] Initialize graph renderer on page load (follow site.js initialization pattern)
-- [ ] Handle layout selector change
-- [ ] Handle fit-to-view button
-- [ ] Handle export button
-- [ ] Handle `codeGraph:nodeSelected` event - update details panel
-- [ ] Handle `codeGraph:navigateToSource` event - load source preview
-- [ ] Implement symbol search functionality with debounce
-- [ ] Poll for indexing status if status != Complete
-- [ ] **Error handling:** Show user-friendly messages for network errors
+- [x] Initialize graph renderer on page load (follow site.js initialization pattern)
+- [x] Handle layout selector change
+- [x] Handle fit-to-view button
+- [x] Handle export button
+- [x] Handle `codeGraph:nodeSelected` event - update details panel
+- [x] Handle `codeGraph:navigateToSource` event - load source preview
+- [x] Implement symbol search functionality with debounce
+- [x] Poll for indexing status if status != Complete
+- [x] **Error handling:** Show user-friendly messages for network errors
 
 ### 5.6 Add Navigation Link
 
 - [x] Add "Code Analysis" link to the sidebar navigation in `_Layout.cshtml`
-- [ ] Add appropriate icon (use existing icon style, e.g., graph/nodes icon)
+- [x] Add appropriate icon (use existing icon style, e.g., graph/nodes icon)
 - [ ] Position appropriately in the navigation hierarchy
 
 ### 5.7 Verification

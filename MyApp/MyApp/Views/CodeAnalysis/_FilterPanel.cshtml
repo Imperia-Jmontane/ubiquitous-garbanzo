@@ -1,0 +1,40 @@
+<div class="space-y-3" data-filter-panel>
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Filters</p>
+    <div class="space-y-2 text-sm text-gray-300">
+        <label class="flex items-center gap-2">
+            <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Class" />
+            <span>Classes</span>
+        </label>
+        <label class="flex items-center gap-2">
+            <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Interface" />
+            <span>Interfaces</span>
+        </label>
+        <label class="flex items-center gap-2">
+            <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Method" />
+            <span>Methods</span>
+        </label>
+        <label class="flex items-center gap-2">
+            <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Property" />
+            <span>Properties</span>
+        </label>
+        <label class="flex items-center gap-2">
+            <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" checked data-filter-kind="Field" />
+            <span>Fields</span>
+        </label>
+    </div>
+    <div class="space-y-2">
+        <label class="text-xs font-semibold uppercase tracking-wide text-gray-400" for="namespace-filter">Namespace filter</label>
+        <input id="namespace-filter" type="text" placeholder="MyApp.Domain" class="w-full rounded-lg border border-white/10 bg-gray-950/60 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40" data-namespace-filter />
+    </div>
+    <div class="space-y-2">
+        <label class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-400" for="depth-slider">
+            <span>Depth</span>
+            <span data-depth-value>2</span>
+        </label>
+        <input id="depth-slider" type="range" min="1" max="5" value="2" class="w-full accent-indigo-500" data-depth-slider />
+    </div>
+    <label class="flex items-center gap-2 text-sm text-gray-300">
+        <input type="checkbox" class="rounded border-white/20 bg-gray-950/60 text-indigo-500" data-neighbor-toggle />
+        <span>Show only selected node neighbors</span>
+    </label>
+</div>
